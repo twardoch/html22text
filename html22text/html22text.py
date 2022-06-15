@@ -62,19 +62,38 @@ def prep_doc(soup: BeautifulSoup, base_url: str, file_ext: str = "txt"):
 
 
 def html22text(
-    html: str, # HTML source
-    input: bool = False, # If True, html is a path
-    markdown: bool = False, # Output Markdown if True or plain-text if False
-    base_url: str = "", # Base URL within which links to HTML will be converted to MD links
-    plain_tables: bool = False, # If plain-text, write a simplified table format
-    open_quote: str = "“", # Start char for <q> content in plain-text
-    close_quote: str = "”", # End char for <q> content in plain-text
-    block_quote: bool = False, # If True, treat <blockquote> as <q> in plain-text
-    default_image_alt: str = "", # Default text for image content in plain-text
-    kill_strikethrough: bool = False, # Remove <s>content</s>
-    kill_tags: list = [], # Remove content of selectors
-    file_ext: str = "", # Output file extension for link conversion
-):
+    html: str,
+    input: bool = False,
+    markdown: bool = False,
+    base_url: str = "",
+    plain_tables: bool = False,
+    open_quote: str = "“",
+    close_quote: str = "”",
+    block_quote: bool = False,
+    default_image_alt: str = "",
+    kill_strikethrough: bool = False,
+    kill_tags: list = [],
+    file_ext: str = "",
+) -> str:
+    """Convert HTML text or file to Markdown or plain-text text
+
+    Args:
+        html (str): Input HTML text or file path
+        input (bool, optional): `html` is file path. Defaults to False.
+        markdown (bool, optional): Output Markdown if True or plain-text if False. Defaults to False.
+        base_url (str, optional): Base URL for link conversion. Defaults to "".
+        plain_tables (bool, optional): If plain-text, force plain table formatting. Defaults to False.
+        open_quote (str, optional): If plain-text, char to use for `<q>`. Defaults to "“".
+        close_quote (str, optional): If plain-text, char to use for `</q>`. Defaults to "”".
+        block_quote (bool, optional): If plain-text, treat `<blockquote>` like `<q>`. Defaults to False.
+        default_image_alt (str, optional): If plain-text, default text placeholder for images. Defaults to "".
+        kill_strikethrough (bool, optional): If plain-text, remove content of `<s></s>`. Defaults to False.
+        kill_tags (list, optional): If plain-text, remove content of specified selectors. Defaults to [].
+        file_ext (str, optional): If markdown, file extension for relative `.html` link conversion. Defaults to "".
+
+    Returns:
+        str: Markdown or plain-text as string.
+    """
     if input:
         html = Path(html).read_text(encoding="utf-8")
     soup = BeautifulSoup(html, "html.parser")
