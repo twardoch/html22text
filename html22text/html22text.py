@@ -62,18 +62,18 @@ def prep_doc(soup: BeautifulSoup, base_url: str, file_ext: str = "txt"):
 
 
 def html22text(
-    html: str,
-    input: bool = False,
-    markdown: bool = False,
-    base_url: str = "",
-    plain_tables: bool = False,
-    open_quote: str = "“",
-    close_quote: str = "”",
-    block_quote: bool = False,
-    default_image_alt: str = "",
-    kill_strikethrough: bool = False,
-    kill_tags: list = [],
-    file_ext: str = "",
+    html: str, # HTML source
+    input: bool = False, # If True, html is a path
+    markdown: bool = False, # Output Markdown if True or plain-text if False
+    base_url: str = "", # Base URL within which links to HTML will be converted to MD links
+    plain_tables: bool = False, # If plain-text, write a simplified table format
+    open_quote: str = "“", # Start char for <q> content in plain-text
+    close_quote: str = "”", # End char for <q> content in plain-text
+    block_quote: bool = False, # If True, treat <blockquote> as <q> in plain-text
+    default_image_alt: str = "", # Default text for image content in plain-text
+    kill_strikethrough: bool = False, # Remove <s>content</s>
+    kill_tags: list = [], # Remove content of selectors
+    file_ext: str = "", # Output file extension for link conversion
 ):
     if input:
         html = Path(html).read_text(encoding="utf-8")
