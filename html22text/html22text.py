@@ -7,9 +7,16 @@ from weasyprint import urls
 from bs4 import BeautifulSoup
 from html2text import HTML2Text
 
-# check if href is relative --
-# if it is relative it *should* be an html that generates a text file
-def is_doc(href: str):
+def is_doc(href: str) -> bool:
+    """check if href is relative
+    if it is relative it *should* be an html that generates a text file
+
+    Args:
+        href (str): input URL
+
+    Returns:
+        bool: True if relative
+    """
     tail = os.path.basename(href)
     _, ext = os.path.splitext(tail)
 
@@ -22,7 +29,15 @@ def is_doc(href: str):
     return True
 
 
-def rel_txt_href(href: str, file_ext: str = ".txt"):
+def rel_txt_href(href: str, file_ext: str = ".txt") -> str:
+    """
+    Args:
+        href (str): URL
+        file_ext (str, optional): Defaults to ".txt".
+
+    Returns:
+        str: URL
+    """
     head, tail = os.path.split(href)
     filename, _ = os.path.splitext(tail)
 
@@ -33,15 +48,30 @@ def rel_txt_href(href: str, file_ext: str = ".txt"):
     return urls.iri_to_uri(os.path.join(head, f"{filename}.{file_ext}"))
 
 
-def abs_asset_href(href: str, base_url: str):
+def abs_asset_href(href: str, base_url: str) -> str:
+    """
+    Args:
+        href (str): URL
+        base_url (str)
+
+    Returns:
+        str: URL
+    """
     if urls.url_is_absolute(href) or os.path.isabs(href):
         return href
 
     return urls.iri_to_uri(urls.urljoin(base_url, href))
 
+def replace_asset_hrefs(soup: BeautifulSoup, base_url: str) -> BeautifulSoup:
+    """makes all relative asset links absolute
 
-# makes all relative asset links absolute
-def replace_asset_hrefs(soup: BeautifulSoup, base_url: str):
+    Args:
+        soup (BeautifulSoup)
+        base_url (str)
+
+    Returns:
+        BeautifulSoup
+    """
     for link in soup.find_all("link", href=True):
         link["href"] = abs_asset_href(link["href"], base_url)
 
@@ -51,9 +81,19 @@ def replace_asset_hrefs(soup: BeautifulSoup, base_url: str):
     return soup
 
 
-def prep_doc(soup: BeautifulSoup, base_url: str, file_ext: str = "txt"):
-    # transforms all relative hrefs pointing to other html docs
-    # into relative txt hrefs
+def prep_doc(soup: BeautifulSoup, base_url: str, file_ext: str = "txt") -> BeautifulSoup:
+    """transforms all relative hrefs pointing to other html docs
+    into relative txt hrefs
+
+    Args:
+        soup (BeautifulSoup)
+        base_url (str)
+        file_ext (str, optional): Defaults to "txt".
+
+    Returns:
+        BeautifulSoup
+    """
+
     for a in soup.find_all("a", href=True):
         a["href"] = rel_txt_href(a["href"], file_ext)
 
@@ -143,7 +183,6 @@ def html22text(
         for tag in soup.select(kill_tag):
             tag.replace_with("")
 
-    # return str(soup)
     html = HTML2Text()
     html.body_width = 0
     html.bypass_tables = False
