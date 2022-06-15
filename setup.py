@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='html22text',
-    version='1.0.0',
+    version='1.0.1',
     description='Convert HTML into Markdown or plain text in a smart way',
     long_description='Convert HTML into Markdown or plain text in a smart way',
     keywords='txt plaintext markdown export',
