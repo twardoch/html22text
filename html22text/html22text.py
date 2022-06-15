@@ -3,9 +3,10 @@
 import os
 from pathlib import Path
 
-from weasyprint import urls
 from bs4 import BeautifulSoup
 from html2text import HTML2Text
+from weasyprint import urls
+
 
 def is_doc(href: str) -> bool:
     """check if href is relative
