@@ -21,4 +21,7 @@ setup(
         'Programming Language :: Python :: 3.10',
     ],
     packages=find_packages(),
+    entry_points = {
+        'console_scripts': ['html22text=html22text.__main__:cli'],
+    }
 )
