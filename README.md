@@ -39,10 +39,10 @@ title | translate | upper | zfill
 
 #### Example
 
-Convert the `index.html` file to lowercased plain-text:
+Convert the `index.html` file plain-text, enclosing `<blockquote>` in English quotation marks, and convert to lowercase:
 
 ```
-html22text index.html --input - lower
+html22text index.html --input --block_quote - lower
 ```
 
 ### Python
