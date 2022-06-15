@@ -16,12 +16,34 @@ pip install git+https://github.com/twardoch/html22text
 html22text HTML [--input --markdown --base_url --plain_tables
                          --open_quote --close_quote --block_quote
                          --default_image_alt --kill_strikethrough
-                         --kill_tags --file_ext ]
+                         --kill_tags --file_ext ] [- FIRECOMMAND]
 ```
 
 `HTML` may be HTML text or, if `--input` is specified, a path to a HTML file.
 
 You may invoke the tool as `html22text` or as `python3 -m html22text`.
+
+Thanks to using [Fire](https://google.github.io/python-fire/), `FIRECOMMAND` may be one of the following, see
+
+```capitalize | casefold | center | count | encode |
+endswith | expandtabs | find | format | format_map |
+index | isalnum | isalpha | isascii | isdecimal |
+isdigit | isidentifier | islower | isnumeric |
+isprintable | isspace | istitle | isupper | join |
+ljust | lower | lstrip | maketrans | partition |
+removeprefix | removesuffix | replace | rfind |
+rindex | rjust | rpartition | rsplit | rstrip |
+split | splitlines | startswith | strip | swapcase |
+title | translate | upper | zfill
+```
+
+#### Example
+
+Convert the `index.html` file to lowercased plain-text:
+
+```
+html22text index.html --input - lower
+```
 
 ### Python
 
