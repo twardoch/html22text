@@ -32,7 +32,7 @@ html = "<p>Hello <b><a href='.'>this</a> world</b>!</p>"
 text = html22text(
     html, # HTML source
     input=False, # If True, html is a path
-    markdown=True,
+    markdown=True, # Output Markdown if True or plain-text if False
     base_url="", # Base URL within which links to HTML will be converted to MD links
     plain_tables=False, # If plain-text, write a simplified table format
     open_quote="“", # Start char for <q> content in plain-text
