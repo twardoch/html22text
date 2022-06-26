@@ -140,7 +140,10 @@ def html22text(
     if input:
         html = Path(html).read_text(encoding="utf-8")
     soup = BeautifulSoup(html, "html.parser")
-    soup = BeautifulSoup(soup.select(selector)[0].encode('utf-8'), "html.parser")
+    try:
+        soup = BeautifulSoup(soup.select(selector)[0].encode('utf-8'), "html.parser")
+    except IndexError:
+        pass
 
     if not file_ext:
         if markdown:
