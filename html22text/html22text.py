@@ -106,7 +106,7 @@ def html22text(
     html: str,
     input: bool = False,
     markdown: bool = False,
-    selector: str = "body",
+    selector: str = "html",
     base_url: str = "",
     plain_tables: bool = False,
     open_quote: str = "“",
@@ -123,7 +123,7 @@ def html22text(
         html (str): Input HTML text or file path
         input (bool, optional): `html` is file path. Defaults to False.
         markdown (bool, optional): Output Markdown if True or plain-text if False. Defaults to False.
-        selector (str, optional): Select the portion of HTML to extract. Defaults to `body`.
+        selector (str, optional): Select the portion of HTML to extract. Defaults to `html`.
         base_url (str, optional): Base URL for link conversion. Defaults to ``.
         plain_tables (bool, optional): If plain-text, force plain table formatting. Defaults to False.
         open_quote (str, optional): If plain-text, char to use for `<q>`. Defaults to `“`.
