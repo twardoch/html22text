@@ -106,6 +106,7 @@ def html22text(
     html: str,
     input: bool = False,
     markdown: bool = False,
+    selector: str = "body",
     base_url: str = "",
     plain_tables: bool = False,
     open_quote: str = "“",
@@ -122,15 +123,16 @@ def html22text(
         html (str): Input HTML text or file path
         input (bool, optional): `html` is file path. Defaults to False.
         markdown (bool, optional): Output Markdown if True or plain-text if False. Defaults to False.
-        base_url (str, optional): Base URL for link conversion. Defaults to "".
+        selector (str, optional): Select the portion of HTML to extract. Defaults to `body`.
+        base_url (str, optional): Base URL for link conversion. Defaults to ``.
         plain_tables (bool, optional): If plain-text, force plain table formatting. Defaults to False.
-        open_quote (str, optional): If plain-text, char to use for `<q>`. Defaults to "“".
-        close_quote (str, optional): If plain-text, char to use for `</q>`. Defaults to "”".
+        open_quote (str, optional): If plain-text, char to use for `<q>`. Defaults to `“`.
+        close_quote (str, optional): If plain-text, char to use for `</q>`. Defaults to `”`.
         block_quote (bool, optional): If plain-text, treat `<blockquote>` like `<q>`. Defaults to False.
         default_image_alt (str, optional): If plain-text, default text placeholder for images. Defaults to "".
         kill_strikethrough (bool, optional): If plain-text, remove content of `<s></s>`. Defaults to False.
         kill_tags (list, optional): If plain-text, remove content of specified selectors. Defaults to [].
-        file_ext (str, optional): If markdown, file extension for relative `.html` link conversion. Defaults to "".
+        file_ext (str, optional): If markdown, file extension for relative `.html` link conversion. Defaults to ``.
 
     Returns:
         str: Markdown or plain-text as string.
@@ -138,6 +140,7 @@ def html22text(
     if input:
         html = Path(html).read_text(encoding="utf-8")
     soup = BeautifulSoup(html, "html.parser")
+    soup = BeautifulSoup(soup.select(selector)[0].encode('utf-8'), "html.parser")
 
     if not file_ext:
         if markdown:
