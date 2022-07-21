@@ -4,7 +4,6 @@ from .html22text import html22text
 
 
 def cli():
-if __name__ == "__main__":
     fire.core.Display = lambda lines, out: print(*lines, file=out)
     fire.Fire(html22text)
 
