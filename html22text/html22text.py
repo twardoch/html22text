@@ -115,6 +115,7 @@ def html22text(
     default_image_alt: str = "",
     kill_strikethrough: bool = False,
     kill_tags: list = [],
+    kill_images: bool = False,
     file_ext: str = "",
 ) -> str:
     """Convert HTML text or file to Markdown or plain-text text
@@ -201,7 +202,7 @@ def html22text(
     html.google_list_indent = 0
     html.hide_strikethrough = kill_strikethrough
     html.ignore_emphasis = not markdown
-    html.ignore_images = not markdown
+    html.ignore_images = not markdown or kill_images
     html.ignore_links = not markdown
     html.ignore_mailto_links = not markdown
     html.ignore_tables = not markdown
