@@ -63,6 +63,7 @@ def abs_asset_href(href: str, base_url: str) -> str:
 
     return urls.iri_to_uri(urls.urljoin(base_url, href))
 
+
 def replace_asset_hrefs(soup: BeautifulSoup, base_url: str) -> BeautifulSoup:
     """makes all relative asset links absolute
 
@@ -82,7 +83,9 @@ def replace_asset_hrefs(soup: BeautifulSoup, base_url: str) -> BeautifulSoup:
     return soup
 
 
-def prep_doc(soup: BeautifulSoup, base_url: str, file_ext: str = "txt") -> BeautifulSoup:
+def prep_doc(
+    soup: BeautifulSoup, base_url: str, file_ext: str = "txt"
+) -> BeautifulSoup:
     """transforms all relative hrefs pointing to other html docs
     into relative txt hrefs
 
@@ -142,7 +145,7 @@ def html22text(
         html = Path(html).read_text(encoding="utf-8")
     soup = BeautifulSoup(html, "html.parser")
     try:
-        soup = BeautifulSoup(soup.select(selector)[0].encode('utf-8'), "html.parser")
+        soup = BeautifulSoup(soup.select(selector)[0].encode("utf-8"), "html.parser")
     except IndexError:
         pass
 
@@ -226,4 +229,3 @@ def html22text(
     html.wrap_list_items = False
     html.wrap_tables = False
     return html.handle(str(soup))
-
