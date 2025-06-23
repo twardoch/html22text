@@ -28,7 +28,7 @@ def is_doc(href: str) -> bool:
     # For local paths, check if it's absolute using Path.is_absolute()
     # We assume href is a path-like string if not a URL
     abspath = False if absurl else href_path.is_absolute()
-    htmlfile = ext.lower() in (".html", ".htm")  # Use .lower() for case-insensitivity
+    htmlfile = ext.lower() in {".html", ".htm"}
 
     return not (absurl or abspath or not htmlfile)
 
