@@ -1,0 +1,120 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "html22text"
+dynamic = ["version"]
+description = "Convert HTML into Markdown or plain text in a smart way"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+keywords = ["txt", "plaintext", "markdown", "export", "html"]
+authors = [
+    { name = "Adam Twardoch", email = "adam+github@twardoch.com" }
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "beautifulsoup4>=4.11.1",
+    "html2text>=2020.1.16",
+    "weasyprint>=55.0",
+    "fire>=0.4.0",
+    "ruff>=0.1.0", # Added ruff
+    "mypy>=1.0.0" # Added mypy
+]
+
+[project.urls]
+Homepage = "https://github.com/twardoch/html22text"
+Documentation = "https://github.com/twardoch/html22text#readme"
+Issues = "https://github.com/twardoch/html22text/issues"
+Source = "https://github.com/twardoch/html22text"
+
+[project.scripts]
+html22text = "html22text.__main__:cli"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.targets.sdist]
+include = ["/src", "/tests", "/.github", "/.vscode", "README.md"] # Adjusted for new structure
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/html22text"] # Adjusted for new structure
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "ANN", "ASYNC", "ASYNC1", "BLE", "B", "A", "C4", "DTZ", "T10", "EM", "EXE", "ISC", "ICN", "G", "INP", "PIE", "PYI", "PT", "Q", "RSE", "RET", "SLF", "SLOT", "SIM", "TID", "TCH", "INT", "ARG", "PTH", "ERA", "PD", "PGH", "PL", "TRY", "FLY", "NPY", "PERF", "FURB", "LOG", "RUF"]
+ignore = ["ANN401"] # Ignoring some common ANN errors for now, removed ANN101, ANN102
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true # For now, to handle external libraries
+# allow_redefinition = true # May be needed depending on codebase
+# exclude = ["tests/"] # If tests have different type checking rules or are incomplete
+
+[[tool.mypy.overrides]]
+module = "fire.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "html2text.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "weasyprint.*"
+ignore_missing_imports = true
+
+[tool.hatch.envs.default]
+dependencies = [
+  "pytest",
+  "pytest-cov",
+]
+[tool.hatch.envs.default.scripts]
+test = "pytest {args:tests}"
+# The cov script will be moved to the lint env or a dedicated test env if we want matrix testing for cov
+
+[tool.hatch.envs.lint]
+dependencies = [
+  "ruff",
+  "mypy",
+  "pytest", # mypy might need to import the package to check it
+  "pytest-cov" # if cov script is moved here
+]
+[tool.hatch.envs.lint.scripts]
+fmt = "ruff format src/ tests/ {args}"
+style = "ruff check src/ tests/ {args}"
+typing = "mypy src/ tests/ {args}"
+# Combined linting script
+lint-all = [
+  "fmt --check", # Check formatting
+  "style",       # Apply fixes and show errors
+  "typing",
+]
+# Test coverage script, can also be here or in a specific test matrix instance
+cov = "pytest --cov-report=term-missing --cov-config=pyproject.toml --cov=src/html22text --cov-fail-under=0 {args:tests}"
+
+
+[tool.coverage.run]
+source = ["src/html22text"] # More explicit path for coverage source
+branch = true
+
+[tool.coverage.report]
+fail_under = 0 # Start with 0, increase later
+show_missing = true
