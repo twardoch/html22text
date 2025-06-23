@@ -181,8 +181,10 @@ def html22text(  # noqa: PLR0912, PLR0913, PLR0915
     if is_input_path:
         html_content = Path(html_content).read_text(encoding="utf-8")
 
+    from bs4 import SelectorSyntaxError
+
     soup = BeautifulSoup(html_content, "html.parser")
-    with contextlib.suppress(IndexError):  # SIM105
+    with contextlib.suppress(IndexError, SelectorSyntaxError):  # SIM105
         # Ensure we operate on a copy if selection happens, to avoid modifying original
         selected_tag = soup.select(selector)
         if selected_tag:  # Check if selector found anything
