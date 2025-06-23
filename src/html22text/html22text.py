@@ -122,8 +122,12 @@ def prep_doc(
             current_href = anchor_tag.get("href")
             if isinstance(current_href, str):
                 anchor_tag["href"] = rel_txt_href(current_href, file_ext)
-            elif isinstance(current_href, list): # Should not happen for 'href'
-                 anchor_tag["href"] = rel_txt_href(str(current_href[0]), file_ext)
+            elif isinstance(current_href, list):  # Should not happen for 'href'
+                import warnings
+                warnings.warn(
+                    f"Anchor tag with unexpected list 'href': {current_href}. Skipping transformation.",
+                    UserWarning
+                )
 
     # The RET504 for this was valid, direct return.
     return replace_asset_hrefs(soup, base_url)
