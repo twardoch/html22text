@@ -88,8 +88,8 @@ def replace_asset_hrefs(soup: BeautifulSoup, base_url: str) -> BeautifulSoup:
             current_href = link_tag.get("href")
             if isinstance(current_href, str):
                 link_tag["href"] = abs_asset_href(current_href, base_url)
-            elif isinstance(current_href, list): # Should not happen for 'href'
-                link_tag["href"] = abs_asset_href(str(current_href[0]), base_url)
+            elif isinstance(current_href, list):  # Should not happen for 'href'
+                raise ValueError(f"Unexpected list value for 'href' attribute in <link>: {current_href}")
 
     for element in soup.find_all(src=True):
         if isinstance(element, Tag):
