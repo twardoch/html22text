@@ -46,6 +46,23 @@ def test_kill_tags():
     expected_text = "Visible\n\nMore visible\n"
     assert html22text(html_input, markdown=False, kill_tags=["script"]) == expected_text
 
+def test_kill_tags_multiple():
+    html_input = "<p>Visible</p><script>alert('invisible')</script><style>.hidden{}</style><span>More visible</span>"
+    # Both <script> and <style> should be removed
+    expected_text = "Visible\n\nMore visible\n"
+    assert html22text(html_input, markdown=False, kill_tags=["script", "style"]) == expected_text
+
+def test_kill_tags_nested():
+    html_input = "<div>Keep <span>this <script>remove</script>text</span> only</div>"
+    # <script> is nested inside <span>, should be removed
+    expected_text = "Keep this text only\n"
+    assert html22text(html_input, markdown=False, kill_tags=["script"]) == expected_text
+
+    html_input = "<div>Keep <span>this <script>remove</script><style>gone</style>text</span> only</div>"
+    # Both <script> and <style> are nested, both should be removed
+    expected_text = "Keep this text only\n"
+    assert html22text(html_input, markdown=False, kill_tags=["script", "style"]) == expected_text
+
 def test_blockquote_plain_text_default():
     html_input = "<blockquote>Some quote</blockquote>"
     expected_text = "Some quote\n"
