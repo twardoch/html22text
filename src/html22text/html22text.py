@@ -1,13 +1,72 @@
 #!/usr/bin/env python3
 
 import contextlib
+import warnings  # Moved here
 from pathlib import Path
-from typing import List, Union, cast # For type hinting kill_tags and casting
+from typing import cast  # For type hinting kill_tags and casting
+from urllib.parse import quote as urlquote
+from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
-from bs4.element import Tag, NavigableString, PageElement # Import specific BS4 types
+from bs4.element import NavigableString, PageElement, Tag  # Import specific BS4 types
 from html2text import HTML2Text
-from weasyprint import urls
+
+SelectorSyntaxError: type[Exception]  # Forward declaration for type checkers
+try:
+    from bs4 import SelectorSyntaxError  # type: ignore[attr-defined, no-redef]
+except ImportError:
+    try:
+        # Attempt fallback: soupsieve might be where it originates
+        from soupsieve.util import (  # type: ignore[no-redef]
+            SelectorSyntaxError as SoupsieveSelectorSyntaxError,
+        )
+
+        SelectorSyntaxError = SoupsieveSelectorSyntaxError
+    except ImportError:
+        # If all imports fail, define a dummy exception to allow code to run.
+        # This might mask selector errors if they occur, but prevents import crashes.
+        class SelectorSyntaxError(Exception):  # type: ignore[no-redef]
+            """Dummy SelectorSyntaxError if not found in bs4 or soupsieve."""
+
+
+# Helper function to replace weasyprint.urls.iri_to_uri
+def _iri_to_uri_urllib(iri_string: str) -> str:
+    """
+    Converts an IRI (Internationalized Resource Identifier) to a URI
+    (Uniform Resource Identifier) using urllib.parse.
+    Handles IDNA for domain names.
+    """
+    if not iri_string:
+        return ""
+    parsed_iri = urlparse(iri_string)
+    # Encode domain to Punycode if it's an IDN
+    try:
+        # urlparse netloc can be "hostname:port"
+        hostname = parsed_iri.hostname
+        if hostname:
+            # Encode to IDNA (Punycode)
+            encoded_hostname = hostname.encode("idna").decode("ascii")
+            # Reconstruct netloc if port exists
+            netloc = encoded_hostname
+            if parsed_iri.port:
+                netloc = f"{encoded_hostname}:{parsed_iri.port}"
+
+            # Replace the netloc in the parsed result.
+            # Namedtuples are immutable, so direct reconstruction or _replace is needed.
+            parsed_iri = parsed_iri._replace(netloc=netloc)
+
+    except UnicodeError:
+        # If domain encoding fails, proceed with the original (e.g. IP, already ASCII)
+        pass
+
+    # Percent-encode the path.
+    # urljoin and Path operations handle path normalization.
+    # Safe chars for path: alphanumeric + common symbols not needing encoding.
+    quoted_path = urlquote(parsed_iri.path, safe="/:@-._~!$&'()*+,;=")
+    parsed_iri = parsed_iri._replace(path=quoted_path)
+
+    # urlunparse will reassemble the URI
+    return parsed_iri.geturl()
 
 
 def is_doc(href: str) -> bool:
@@ -24,9 +83,13 @@ def is_doc(href: str) -> bool:
     href_path = Path(href)
     ext = href_path.suffix
 
-    absurl = urls.url_is_absolute(href)
+    # Use urllib.parse.urlparse to check for a scheme
+    parsed_href = urlparse(href)
+    absurl = bool(parsed_href.scheme)
+
     # For local paths, check if it's absolute using Path.is_absolute()
     # We assume href is a path-like string if not a URL
+    # This logic remains the same: if it's not a scheme-based URL, check path absolutism
     abspath = False if absurl else href_path.is_absolute()
     htmlfile = ext.lower() in {".html", ".htm"}
 
@@ -52,7 +115,7 @@ def rel_txt_href(href: str, file_ext: str = ".txt") -> str:
 
     # Construct new path using Path objects for robustness
     new_path = href_path.with_name(f"{filename}.{file_ext.lstrip('.')}")
-    return cast(str, urls.iri_to_uri(str(new_path)))
+    return _iri_to_uri_urllib(str(new_path))
 
 
 def abs_asset_href(href: str, base_url: str) -> str:
@@ -66,10 +129,17 @@ def abs_asset_href(href: str, base_url: str) -> str:
         str: Absolute URL.
     """
     href_path = Path(href)
-    if urls.url_is_absolute(href) or href_path.is_absolute():
-        return href
+    parsed_href = urlparse(href)
+    is_url_absolute = bool(parsed_href.scheme)
 
-    return cast(str, urls.iri_to_uri(urls.urljoin(base_url, href)))
+    if is_url_absolute or href_path.is_absolute():
+        return _iri_to_uri_urllib(
+            href
+        )  # Ensure even absolute URLs are correctly IRI encoded
+
+    # Use urllib.parse.urljoin for joining
+    joined_url = urljoin(base_url, href)
+    return _iri_to_uri_urllib(joined_url)
 
 
 def replace_asset_hrefs(soup: BeautifulSoup, base_url: str) -> BeautifulSoup:
@@ -89,7 +159,12 @@ def replace_asset_hrefs(soup: BeautifulSoup, base_url: str) -> BeautifulSoup:
             if isinstance(current_href, str):
                 link_tag["href"] = abs_asset_href(current_href, base_url)
             elif isinstance(current_href, list):  # Should not happen for 'href'
-                raise ValueError(f"Unexpected list value for 'href' attribute in <link>: {current_href}")
+                # Changed to TypeError as per TRY004 suggestion
+                error_message = (
+                    f"Unexpected list value for 'href' attribute in <link>: "
+                    f"{current_href}"
+                )
+                raise TypeError(error_message)
 
     for element in soup.find_all(src=True):
         if isinstance(element, Tag):
@@ -97,7 +172,7 @@ def replace_asset_hrefs(soup: BeautifulSoup, base_url: str) -> BeautifulSoup:
             current_src = asset_tag.get("src")
             if isinstance(current_src, str):
                 asset_tag["src"] = abs_asset_href(current_src, base_url)
-            elif isinstance(current_src, list): # Should not happen for 'src'
+            elif isinstance(current_src, list):  # Should not happen for 'src'
                 asset_tag["src"] = abs_asset_href(str(current_src[0]), base_url)
 
     return soup
@@ -123,10 +198,11 @@ def prep_doc(
             if isinstance(current_href, str):
                 anchor_tag["href"] = rel_txt_href(current_href, file_ext)
             elif isinstance(current_href, list):  # Should not happen for 'href'
-                import warnings
                 warnings.warn(
-                    f"Anchor tag with unexpected list 'href': {current_href}. Skipping transformation.",
-                    UserWarning
+                    f"Anchor tag with unexpected list 'href': {current_href}. "
+                    "Skipping transformation.",
+                    UserWarning,
+                    stacklevel=2,  # B028: Add stacklevel
                 )
 
     # The RET504 for this was valid, direct return.
@@ -139,7 +215,7 @@ def html22text(  # noqa: PLR0912, PLR0913, PLR0915
     markdown: bool = False,
     selector: str = "html",
     base_url: str = "",
-    plain_tables: bool = False,
+    # plain_tables: bool = False, # Removed parameter
     open_quote: str = "“",
     close_quote: str = "”",
     block_quote: bool = False,
@@ -185,8 +261,6 @@ def html22text(  # noqa: PLR0912, PLR0913, PLR0915
     if is_input_path:
         html_content = Path(html_content).read_text(encoding="utf-8")
 
-    from bs4 import SelectorSyntaxError
-
     soup = BeautifulSoup(html_content, "html.parser")
     with contextlib.suppress(IndexError, SelectorSyntaxError):  # SIM105
         # Ensure we operate on a copy if selection happens, to avoid modifying original
@@ -201,24 +275,27 @@ def html22text(  # noqa: PLR0912, PLR0913, PLR0915
     if markdown:
         soup = prep_doc(soup, base_url, current_file_ext)
 
-    tag_or_element: Union[Tag, PageElement, NavigableString]
+    tag_or_element: Tag | PageElement | NavigableString
     for tag_or_element in soup.find_all(True):
         if isinstance(tag_or_element, Tag):
-            tag: Tag = tag_or_element # Narrowing type
+            tag: Tag = tag_or_element  # Narrowing type
 
             if tag.name in ("mark", "kbd"):
                 tag.replace_with(tag.get_text(""))  # type: ignore[arg-type]
-            if plain_tables and tag.name == "table":
-                rows = []
-                for tr_element in tag.find_all("tr"):
-                    if isinstance(tr_element, Tag):
-                        tr_tag: Tag = tr_element
-                        td_cells = []
-                        for td_element in tr_tag.find_all(["th", "td"]):
-                            if isinstance(td_element, Tag):
-                                td_cells.append(td_element.get_text(" "))
-                        rows.append(", ".join(td_cells))
-                tag.replace_with(". ".join(rows))  # type: ignore[arg-type]
+            # Temporarily commenting out custom plain_tables logic
+            # if plain_tables and tag.name == "table":
+            #     rows = []
+            #     for tr_element in tag.find_all("tr"):
+            #         if isinstance(tr_element, Tag):
+            #             tr_tag: Tag = tr_element
+            #             # PERF401: Use list comprehension
+            #             td_cells = [
+            #                 td.get_text(" ")
+            #                 for td in tr_tag.find_all(["th", "td"])
+            #                 if isinstance(td, Tag)
+            #             ]
+            #             rows.append(", ".join(td_cells))
+            #     tag.replace_with(". ".join(rows))  # type: ignore[arg-type]
             if not markdown:
                 if tag.name == "blockquote":
                     if block_quote:
@@ -244,43 +321,51 @@ def html22text(  # noqa: PLR0912, PLR0913, PLR0915
                     tag.name = "q"
 
     for kill_item in actual_kill_tags:  # Use the initialized list
-        for element_to_kill in soup.select(kill_item): # select usually returns Tags
+        for element_to_kill in soup.select(kill_item):  # select usually returns Tags
             if isinstance(element_to_kill, Tag):
                 found_tag_to_kill: Tag = element_to_kill
-                found_tag_to_kill.replace_with("") # type: ignore[arg-type]
+                found_tag_to_kill.replace_with("")  # type: ignore[arg-type]
 
     h = HTML2Text()
-    h.body_width = 0
+
+    # Universal settings
+    h.body_width = 0  # No line wrapping
     h.bypass_tables = False
-    h.close_quote = close_quote
-    h.default_image_alt = default_image_alt
-    h.emphasis_mark = "_" if markdown else ""
     h.escape_snob = False
     h.google_doc = False
     h.google_list_indent = 0
+    h.images_as_html = False
+    h.images_with_size = False
+    h.links_each_paragraph = False
+    h.protect_links = True
+    h.single_line_break = False
+    h.tag_callback = None
+    h.unicode_snob = True
+    h.wrap_links = False
+    h.wrap_list_items = False
+    h.wrap_tables = False
+
+    # Settings from direct pass-through parameters
+    h.close_quote = close_quote
+    h.default_image_alt = default_image_alt
     h.hide_strikethrough = kill_strikethrough
+    h.open_quote = open_quote
+
+    # Conditional settings based on markdown mode or other parameters
+    h.emphasis_mark = "_" if markdown else ""
     h.ignore_emphasis = not markdown
     h.ignore_images = not markdown or kill_images
     h.ignore_links = not markdown
     h.ignore_mailto_links = not markdown
-    h.ignore_tables = not markdown
-    h.images_as_html = False
-    h.images_to_alt = not markdown
-    h.images_with_size = False
+    # h.ignore_tables = not markdown # Temporarily allow tables for plain text
+    h.ignore_tables = False # For testing html2text's native table handling
+    h.images_to_alt = not markdown  # Convert images to alt text if not markdown
     h.inline_links = bool(markdown)
-    h.links_each_paragraph = False
-    h.mark_code = False
-    h.open_quote = open_quote
+    h.mark_code = bool(markdown)  # Enable code marking for Markdown
     h.pad_tables = bool(markdown)
-    h.protect_links = True
-    h.single_line_break = False
     h.skip_internal_links = not markdown
     h.strong_mark = "**" if markdown else ""
-    h.tag_callback = None
     h.ul_item_mark = "-" if markdown else ""
-    h.unicode_snob = True
     h.use_automatic_links = bool(markdown)
-    h.wrap_links = False
-    h.wrap_list_items = False
-    h.wrap_tables = False
-    return cast(str, h.handle(str(soup)))
+
+    return cast("str", h.handle(str(soup)))

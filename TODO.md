@@ -1,0 +1,36 @@
+# TODO: Streamline html22text for MVP v1.0
+
+- [x] Create `PLAN.md` with detailed steps.
+- [x] Create `TODO.md` (this file).
+- [x] Create `CHANGELOG.md`.
+- [ ] **Investigate `weasyprint.urls` Dependency:**
+    - [ ] Analyze usage in `is_doc`, `rel_txt_href`, `abs_asset_href`.
+    - [ ] Attempt replacement with `urllib.parse`.
+    - [ ] Test thoroughly.
+    - [ ] If successful, remove dependency and update configs. Otherwise, document and keep.
+- [ ] **Simplify `HTML2Text` Configuration:**
+    - [ ] Analyze parameter mapping to `HTML2Text` attributes.
+    - [ ] Refactor configuration logic for conciseness.
+    - [ ] Conservatively prune non-essential exposed parameters for MVP.
+    - [ ] Update function signature, docstrings, CLI, and tests if parameters change.
+- [ ] **Review and Refactor Tag Manipulation Logic:**
+    - [ ] Evaluate `plain_tables` custom logic vs. `html2text` capabilities.
+    - [ ] Review non-Markdown tag renamings (`blockquote`, `ul`, `ol`, `figure`, headers, `li`, `code`) vs. `html2text` defaults.
+    - [ ] Keep essential `kill_tags` and `mark`/`kbd` stripping.
+    - [ ] Simplify by removing custom logic if `html2text` defaults are acceptable for MVP.
+    - [ ] Update tests.
+- [ ] **Review Helper Functions for Conciseness:**
+    - [ ] Post-`weasyprint` investigation, review link helpers (`is_doc`, `rel_txt_href`, `abs_asset_href`, `replace_asset_hrefs`, `prep_doc`) for minor simplifications.
+    - [ ] Check warning for list `href` attributes in `prep_doc`.
+- [ ] **Final Code and Documentation Review:**
+    - [ ] Review comments and docstrings.
+    - [ ] Ensure `README.md` is accurate (API, CLI examples).
+    - [ ] Verify `pyproject.toml`.
+- [ ] **Testing and Validation:**
+    - [ ] Run all linters, formatters, type checks (`ruff`, `mypy`).
+    - [ ] Run all tests with coverage (`pytest`).
+    - [ ] Perform manual CLI testing with representative HTML samples.
+- [ ] **Update `PLAN.md` and `TODO.md`:**
+    - [ ] Mark all steps as complete.
+- [ ] **Submit Changes:**
+    - [ ] Commit with a comprehensive message to a new branch.
