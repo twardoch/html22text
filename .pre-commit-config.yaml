@@ -30,7 +30,7 @@ repos:
             # For now, assuming mypy.overrides in pyproject.toml handles missing imports for some libs
             "beautifulsoup4>=4.11.1", # So mypy can see bs4
             "html2text>=2020.1.16",
-            "weasyprint>=55.0", # Though these are ignored in pyproject.toml for mypy
+            # "weasyprint>=55.0", # Removed
             "fire>=0.4.0",
         ]
         # verbose: true # Optional: for more detailed mypy output

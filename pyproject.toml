@@ -27,7 +27,7 @@ classifiers = [
 dependencies = [
     "beautifulsoup4>=4.11.1",
     "html2text>=2020.1.16",
-    "weasyprint>=55.0",
+    # "weasyprint>=55.0", # Removed
     "fire>=0.4.0",
     "ruff>=0.1.0", # Added ruff
     "mypy>=1.0.0" # Added mypy
@@ -77,9 +77,9 @@ ignore_missing_imports = true
 module = "html2text.*"
 ignore_missing_imports = true
 
-[[tool.mypy.overrides]]
-module = "weasyprint.*"
-ignore_missing_imports = true
+# [[tool.mypy.overrides]] # Removed weasyprint override
+# module = "weasyprint.*"
+# ignore_missing_imports = true
 
 [tool.hatch.envs.default]
 dependencies = [
