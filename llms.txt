@@ -49,12 +49,16 @@ src/
     __main__.py
     html22text.py
 tests/
+  __init__.py
   test_html22text.py
 .gitignore
 .pre-commit-config.yaml
+CHANGELOG.md
 LICENSE
+PLAN.md
 pyproject.toml
 README.md
+TODO.md
 </directory_structure>
 
 <files>
@@ -142,13 +146,72 @@ if __name__ == "__main__":
 #!/usr/bin/env python3
 
 import contextlib
+import warnings  # Moved here
 from pathlib import Path
-from typing import List, Union, cast # For type hinting kill_tags and casting
+from typing import cast  # For type hinting kill_tags and casting
+from urllib.parse import quote as urlquote
+from urllib.parse import urljoin, urlparse
 
 from bs4 import BeautifulSoup
-from bs4.element import Tag, NavigableString, PageElement # Import specific BS4 types
+from bs4.element import NavigableString, PageElement, Tag  # Import specific BS4 types
 from html2text import HTML2Text
-from weasyprint import urls
+
+SelectorSyntaxError: type[Exception]  # Forward declaration for type checkers
+try:
+    from bs4 import SelectorSyntaxError  # type: ignore[attr-defined, no-redef]
+except ImportError:
+    try:
+        # Attempt fallback: soupsieve might be where it originates
+        from soupsieve.util import (  # type: ignore[no-redef]
+            SelectorSyntaxError as SoupsieveSelectorSyntaxError,
+        )
+
+        SelectorSyntaxError = SoupsieveSelectorSyntaxError
+    except ImportError:
+        # If all imports fail, define a dummy exception to allow code to run.
+        # This might mask selector errors if they occur, but prevents import crashes.
+        class SelectorSyntaxError(Exception):  # type: ignore[no-redef]
+            """Dummy SelectorSyntaxError if not found in bs4 or soupsieve."""
+
+
+# Helper function to replace weasyprint.urls.iri_to_uri
+def _iri_to_uri_urllib(iri_string: str) -> str:
+    """
+    Converts an IRI (Internationalized Resource Identifier) to a URI
+    (Uniform Resource Identifier) using urllib.parse.
+    Handles IDNA for domain names.
+    """
+    if not iri_string:
+        return ""
+    parsed_iri = urlparse(iri_string)
+    # Encode domain to Punycode if it's an IDN
+    try:
+        # urlparse netloc can be "hostname:port"
+        hostname = parsed_iri.hostname
+        if hostname:
+            # Encode to IDNA (Punycode)
+            encoded_hostname = hostname.encode("idna").decode("ascii")
+            # Reconstruct netloc if port exists
+            netloc = encoded_hostname
+            if parsed_iri.port:
+                netloc = f"{encoded_hostname}:{parsed_iri.port}"
+
+            # Replace the netloc in the parsed result.
+            # Namedtuples are immutable, so direct reconstruction or _replace is needed.
+            parsed_iri = parsed_iri._replace(netloc=netloc)
+
+    except UnicodeError:
+        # If domain encoding fails, proceed with the original (e.g. IP, already ASCII)
+        pass
+
+    # Percent-encode the path.
+    # urljoin and Path operations handle path normalization.
+    # Safe chars for path: alphanumeric + common symbols not needing encoding.
+    quoted_path = urlquote(parsed_iri.path, safe="/:@-._~!$&'()*+,;=")
+    parsed_iri = parsed_iri._replace(path=quoted_path)
+
+    # urlunparse will reassemble the URI
+    return parsed_iri.geturl()
 
 
 def is_doc(href: str) -> bool:
@@ -165,9 +228,13 @@ def is_doc(href: str) -> bool:
     href_path = Path(href)
     ext = href_path.suffix
 
-    absurl = urls.url_is_absolute(href)
+    # Use urllib.parse.urlparse to check for a scheme
+    parsed_href = urlparse(href)
+    absurl = bool(parsed_href.scheme)
+
     # For local paths, check if it's absolute using Path.is_absolute()
     # We assume href is a path-like string if not a URL
+    # This logic remains the same: if it's not a scheme-based URL, check path absolutism
     abspath = False if absurl else href_path.is_absolute()
     htmlfile = ext.lower() in {".html", ".htm"}
 
@@ -193,7 +260,7 @@ def rel_txt_href(href: str, file_ext: str = ".txt") -> str:
 
     # Construct new path using Path objects for robustness
     new_path = href_path.with_name(f"{filename}.{file_ext.lstrip('.')}")
-    return cast(str, urls.iri_to_uri(str(new_path)))
+    return _iri_to_uri_urllib(str(new_path))
 
 
 def abs_asset_href(href: str, base_url: str) -> str:
@@ -207,10 +274,17 @@ def abs_asset_href(href: str, base_url: str) -> str:
         str: Absolute URL.
     """
     href_path = Path(href)
-    if urls.url_is_absolute(href) or href_path.is_absolute():
-        return href
+    parsed_href = urlparse(href)
+    is_url_absolute = bool(parsed_href.scheme)
 
-    return cast(str, urls.iri_to_uri(urls.urljoin(base_url, href)))
+    if is_url_absolute or href_path.is_absolute():
+        return _iri_to_uri_urllib(
+            href
+        )  # Ensure even absolute URLs are correctly IRI encoded
+
+    # Use urllib.parse.urljoin for joining
+    joined_url = urljoin(base_url, href)
+    return _iri_to_uri_urllib(joined_url)
 
 
 def replace_asset_hrefs(soup: BeautifulSoup, base_url: str) -> BeautifulSoup:
@@ -230,7 +304,12 @@ def replace_asset_hrefs(soup: BeautifulSoup, base_url: str) -> BeautifulSoup:
             if isinstance(current_href, str):
                 link_tag["href"] = abs_asset_href(current_href, base_url)
             elif isinstance(current_href, list):  # Should not happen for 'href'
-                raise ValueError(f"Unexpected list value for 'href' attribute in <link>: {current_href}")
+                # Changed to TypeError as per TRY004 suggestion
+                error_message = (
+                    f"Unexpected list value for 'href' attribute in <link>: "
+                    f"{current_href}"
+                )
+                raise TypeError(error_message)
 
     for element in soup.find_all(src=True):
         if isinstance(element, Tag):
@@ -238,7 +317,7 @@ def replace_asset_hrefs(soup: BeautifulSoup, base_url: str) -> BeautifulSoup:
             current_src = asset_tag.get("src")
             if isinstance(current_src, str):
                 asset_tag["src"] = abs_asset_href(current_src, base_url)
-            elif isinstance(current_src, list): # Should not happen for 'src'
+            elif isinstance(current_src, list):  # Should not happen for 'src'
                 asset_tag["src"] = abs_asset_href(str(current_src[0]), base_url)
 
     return soup
@@ -264,10 +343,11 @@ def prep_doc(
             if isinstance(current_href, str):
                 anchor_tag["href"] = rel_txt_href(current_href, file_ext)
             elif isinstance(current_href, list):  # Should not happen for 'href'
-                import warnings
                 warnings.warn(
-                    f"Anchor tag with unexpected list 'href': {current_href}. Skipping transformation.",
-                    UserWarning
+                    f"Anchor tag with unexpected list 'href': {current_href}. "
+                    "Skipping transformation.",
+                    UserWarning,
+                    stacklevel=2,  # B028: Add stacklevel
                 )
 
     # The RET504 for this was valid, direct return.
@@ -280,7 +360,7 @@ def html22text(  # noqa: PLR0912, PLR0913, PLR0915
     markdown: bool = False,
     selector: str = "html",
     base_url: str = "",
-    plain_tables: bool = False,
+    # plain_tables: bool = False, # Removed parameter
     open_quote: str = "“",
     close_quote: str = "”",
     block_quote: bool = False,
@@ -326,8 +406,6 @@ def html22text(  # noqa: PLR0912, PLR0913, PLR0915
     if is_input_path:
         html_content = Path(html_content).read_text(encoding="utf-8")
 
-    from bs4 import SelectorSyntaxError
-
     soup = BeautifulSoup(html_content, "html.parser")
     with contextlib.suppress(IndexError, SelectorSyntaxError):  # SIM105
         # Ensure we operate on a copy if selection happens, to avoid modifying original
@@ -342,24 +420,27 @@ def html22text(  # noqa: PLR0912, PLR0913, PLR0915
     if markdown:
         soup = prep_doc(soup, base_url, current_file_ext)
 
-    tag_or_element: Union[Tag, PageElement, NavigableString]
+    tag_or_element: Tag | PageElement | NavigableString
     for tag_or_element in soup.find_all(True):
         if isinstance(tag_or_element, Tag):
-            tag: Tag = tag_or_element # Narrowing type
+            tag: Tag = tag_or_element  # Narrowing type
 
             if tag.name in ("mark", "kbd"):
                 tag.replace_with(tag.get_text(""))  # type: ignore[arg-type]
-            if plain_tables and tag.name == "table":
-                rows = []
-                for tr_element in tag.find_all("tr"):
-                    if isinstance(tr_element, Tag):
-                        tr_tag: Tag = tr_element
-                        td_cells = []
-                        for td_element in tr_tag.find_all(["th", "td"]):
-                            if isinstance(td_element, Tag):
-                                td_cells.append(td_element.get_text(" "))
-                        rows.append(", ".join(td_cells))
-                tag.replace_with(". ".join(rows))  # type: ignore[arg-type]
+            # Temporarily commenting out custom plain_tables logic
+            # if plain_tables and tag.name == "table":
+            #     rows = []
+            #     for tr_element in tag.find_all("tr"):
+            #         if isinstance(tr_element, Tag):
+            #             tr_tag: Tag = tr_element
+            #             # PERF401: Use list comprehension
+            #             td_cells = [
+            #                 td.get_text(" ")
+            #                 for td in tr_tag.find_all(["th", "td"])
+            #                 if isinstance(td, Tag)
+            #             ]
+            #             rows.append(", ".join(td_cells))
+            #     tag.replace_with(". ".join(rows))  # type: ignore[arg-type]
             if not markdown:
                 if tag.name == "blockquote":
                     if block_quote:
@@ -385,140 +466,207 @@ def html22text(  # noqa: PLR0912, PLR0913, PLR0915
                     tag.name = "q"
 
     for kill_item in actual_kill_tags:  # Use the initialized list
-        for element_to_kill in soup.select(kill_item): # select usually returns Tags
+        for element_to_kill in soup.select(kill_item):  # select usually returns Tags
             if isinstance(element_to_kill, Tag):
                 found_tag_to_kill: Tag = element_to_kill
-                found_tag_to_kill.replace_with("") # type: ignore[arg-type]
+                found_tag_to_kill.replace_with("")  # type: ignore[arg-type]
 
     h = HTML2Text()
-    h.body_width = 0
+
+    # Universal settings
+    h.body_width = 0  # No line wrapping
     h.bypass_tables = False
-    h.close_quote = close_quote
-    h.default_image_alt = default_image_alt
-    h.emphasis_mark = "_" if markdown else ""
     h.escape_snob = False
     h.google_doc = False
     h.google_list_indent = 0
+    h.images_as_html = False
+    h.images_with_size = False
+    h.links_each_paragraph = False
+    h.protect_links = True
+    h.single_line_break = False
+    h.tag_callback = None
+    h.unicode_snob = True
+    h.wrap_links = False
+    h.wrap_list_items = False
+    h.wrap_tables = False
+
+    # Settings from direct pass-through parameters
+    h.close_quote = close_quote
+    h.default_image_alt = default_image_alt
     h.hide_strikethrough = kill_strikethrough
+    h.open_quote = open_quote
+
+    # Conditional settings based on markdown mode or other parameters
+    h.emphasis_mark = "_" if markdown else ""
     h.ignore_emphasis = not markdown
     h.ignore_images = not markdown or kill_images
     h.ignore_links = not markdown
     h.ignore_mailto_links = not markdown
-    h.ignore_tables = not markdown
-    h.images_as_html = False
-    h.images_to_alt = not markdown
-    h.images_with_size = False
+    # h.ignore_tables = not markdown # Temporarily allow tables for plain text
+    h.ignore_tables = False # For testing html2text's native table handling
+    h.images_to_alt = not markdown  # Convert images to alt text if not markdown
     h.inline_links = bool(markdown)
-    h.links_each_paragraph = False
-    h.mark_code = False
-    h.open_quote = open_quote
+    h.mark_code = bool(markdown)  # Enable code marking for Markdown
     h.pad_tables = bool(markdown)
-    h.protect_links = True
-    h.single_line_break = False
     h.skip_internal_links = not markdown
     h.strong_mark = "**" if markdown else ""
-    h.tag_callback = None
     h.ul_item_mark = "-" if markdown else ""
-    h.unicode_snob = True
     h.use_automatic_links = bool(markdown)
-    h.wrap_links = False
-    h.wrap_list_items = False
-    h.wrap_tables = False
-    return cast(str, h.handle(str(soup)))
+
+    return cast("str", h.handle(str(soup)))
+</file>
+
+<file path="tests/__init__.py">
+# This file makes Python treat the 'tests' directory as a package.
 </file>
 
 <file path="tests/test_html22text.py">
-import pytest
-from html22text import html22text
+from pathlib import Path
 
-def test_simple_conversion_markdown():
+from html22text import html22text
+from html22text.html22text import abs_asset_href, is_doc, rel_txt_href
+
+
+def test_simple_conversion_markdown() -> None:
     html_input = "<p>Hello <b>world</b></p>"
     expected_markdown = "Hello **world**\n"
     assert html22text(html_input, markdown=True) == expected_markdown
 
-def test_simple_conversion_text():
+
+def test_simple_conversion_text() -> None:
     html_input = "<p>Hello <b>world</b></p>"
     expected_text = "Hello world\n"
     assert html22text(html_input, markdown=False) == expected_text
 
-def test_link_conversion_markdown():
-    html_input = '<p>A <a href="http://example.com">link</a></p>'
-    expected_markdown = "A [link](<http://example.com>)\n"  # Adjusted for <> and one newline
-    assert html22text(html_input, markdown=True, base_url="http://example.com") == expected_markdown
 
-def test_link_conversion_text():
+def test_link_conversion_markdown() -> None:
+    html_input = '<p>A <a href="http://example.com">link</a></p>'
+    expected_markdown = (
+        "A [link](<http://example.com>)\n"  # Adjusted for <> and one newline
+    )
+    assert (
+        html22text(html_input, markdown=True, base_url="http://example.com")
+        == expected_markdown
+    )
+
+
+def test_link_conversion_text() -> None:
     html_input = '<p>A <a href="http://example.com">link</a></p>'
     expected_text = "A link\n"
     assert html22text(html_input, markdown=False) == expected_text
 
-def test_image_conversion_markdown():
+
+def test_image_conversion_markdown() -> None:
     html_input = '<p><img src="image.jpg" alt="An image"></p>'
     # base_url will be used by html2text to make the src absolute
     expected_markdown = "![An image](http://dummy.com/image.jpg)\n"
-    assert html22text(html_input, markdown=True, base_url="http://dummy.com") == expected_markdown
+    assert (
+        html22text(html_input, markdown=True, base_url="http://dummy.com")
+        == expected_markdown
+    )
 
-def test_image_conversion_text_with_alt():
+
+def test_image_conversion_text_with_alt() -> None:
     html_input = '<p><img src="image.jpg" alt="An image"></p>'
     # With markdown=False, html2text's ignore_images=True, so outputs minimal.
     # The default_image_alt and kill_images=False don't override this for text mode.
     expected_text = "\n"
-    assert html22text(html_input, markdown=False, default_image_alt="An image", kill_images=False) == expected_text
+    assert (
+        html22text(
+            html_input, markdown=False, default_image_alt="An image", kill_images=False
+        )
+        == expected_text
+    )
 
-def test_image_conversion_text_no_alt():
+
+def test_image_conversion_text_no_alt() -> None:
     html_input = '<p><img src="image.jpg"></p>'
     # With markdown=False, html2text's ignore_images=True.
     expected_text = "\n"
     assert html22text(html_input, markdown=False, kill_images=False) == expected_text
 
-def test_kill_tags():
-    html_input = "<p>Visible</p><script>alert('invisible')</script><span>More visible</span>"
-    # The actual output has "Visible\n\nMore visible\n" - the double newline is between blocks
+
+def test_kill_tags() -> None:
+    html_input = (
+        "<p>Visible</p><script>alert('invisible')</script><span>More visible</span>"
+    )
+    # The actual output has "Visible\n\nMore visible\n" - the double newline is
+    # between blocks
     expected_text = "Visible\n\nMore visible\n"
     assert html22text(html_input, markdown=False, kill_tags=["script"]) == expected_text
 
-def test_kill_tags_multiple():
-    html_input = "<p>Visible</p><script>alert('invisible')</script><style>.hidden{}</style><span>More visible</span>"
+
+def test_kill_tags_multiple() -> None:
+    html_input = (
+        "<p>Visible</p><script>alert('invisible')</script>"
+        "<style>.hidden{}</style><span>More visible</span>"
+    )
     # Both <script> and <style> should be removed
     expected_text = "Visible\n\nMore visible\n"
-    assert html22text(html_input, markdown=False, kill_tags=["script", "style"]) == expected_text
+    assert (
+        html22text(html_input, markdown=False, kill_tags=["script", "style"])
+        == expected_text
+    )
 
-def test_kill_tags_nested():
+
+def test_kill_tags_nested() -> None:
     html_input = "<div>Keep <span>this <script>remove</script>text</span> only</div>"
     # <script> is nested inside <span>, should be removed
     expected_text = "Keep this text only\n"
     assert html22text(html_input, markdown=False, kill_tags=["script"]) == expected_text
 
-    html_input = "<div>Keep <span>this <script>remove</script><style>gone</style>text</span> only</div>"
+    html_input = (
+        "<div>Keep <span>this <script>remove</script>"
+        "<style>gone</style>text</span> only</div>"
+    )
     # Both <script> and <style> are nested, both should be removed
     expected_text = "Keep this text only\n"
-    assert html22text(html_input, markdown=False, kill_tags=["script", "style"]) == expected_text
+    assert (
+        html22text(html_input, markdown=False, kill_tags=["script", "style"])
+        == expected_text
+    )
 
-def test_blockquote_plain_text_default():
+
+def test_blockquote_plain_text_default() -> None:
     html_input = "<blockquote>Some quote</blockquote>"
     expected_text = "Some quote\n"
     assert html22text(html_input, markdown=False) == expected_text
 
-def test_blockquote_plain_text_as_quote():
-    html_input = "<blockquote>Some quote</blockquote>"
-    expected_text = '"Some quote"\n' # html2text wraps this in a single line if it becomes <p><q>text</q></p>
-    assert html22text(html_input, markdown=False, block_quote=True, open_quote='"', close_quote='"') == expected_text
 
-def test_list_markdown():
+def test_blockquote_plain_text_as_quote() -> None:
+    html_input = "<blockquote>Some quote</blockquote>"
+    # html2text wraps this in a single line if it becomes <p><q>text</q></p>
+    expected_text = '"Some quote"\n'
+    assert (
+        html22text(
+            html_input,
+            markdown=False,
+            block_quote=True,
+            open_quote='"',
+            close_quote='"',
+        )
+        == expected_text
+    )
+
+
+def test_list_markdown() -> None:
     html_input = "<ul><li>One</li><li>Two</li></ul>"
     # html2text default is often "  - item" with more newlines.
     # Let's try to match the actual output: '  - One\n  - Two\n\n\n'
     # My code sets ul_item_mark = "-" if markdown.
-    expected_markdown = "  - One\n  - Two\n\n\n" # Adjusted to likely actual output
+    expected_markdown = "  - One\n  - Two\n\n\n"  # Adjusted to likely actual output
     assert html22text(html_input, markdown=True) == expected_markdown
 
-def test_list_text():
+
+def test_list_text() -> None:
     html_input = "<ul><li>One</li><li>Two</li></ul>"
     # Actual 'One\n\nTwo\n'
     expected_text = "One\n\nTwo\n"
     assert html22text(html_input, markdown=False) == expected_text
 
+
 # A more complex example
-def test_complex_markdown_conversion():
+def test_complex_markdown_conversion() -> None:
     html_input = """
     <h1>Title</h1>
     <p>This is <em>emphasized</em> and <strong>strong</strong> text.</p>
@@ -539,61 +687,89 @@ def test_complex_markdown_conversion():
     # Code block is ```\ncode\n```.
     # Two newlines after code block.
     expected_markdown = (
-        "# Title\n"
-        "This is _emphasized_ and **strong** text.\n"
-        "A link to [example](<https://example.com>).\n"
+        "# Title\n\n"  # Double newline
+        "This is _emphasized_ and **strong** text.\n\n"  # Double newline
+        "A link to [example](<https://example.com>).\n\n"  # Double newline
         "  - Item 1\n"
-        "  - Item 2\n\n\n"  # 3 newlines here based on typical html2text output for ul followed by pre
-        # With mark_code=False (current setting in html22text.py), no backticks are added.
-        # The content of <pre> is usually passed through.
-        # html2text might add a couple of newlines after a pre block.
-        'print("Hello")\n\n'
+        "  - Item 2\n\n\n"
+        "[code] \n"
+        '    print("Hello")\n'
+        "[/code]\n"  # Changed to single newline at the end
     )
     # The actual output might vary slightly based on html2text's specific formatting,
     # especially around newlines and code blocks. This is a general expectation.
     # The key is that `html22text` calls `html2text.HTML2Text().handle()`
     # We need to match its behavior.
-    # For pre/code, html2text usually uses ```.
     actual_markdown = html22text(html_input, markdown=True)
-    # Normalize newlines and spacing for comparison
-    assert "".join(actual_markdown.split()) == "".join(expected_markdown.split())
+    assert actual_markdown == expected_markdown
 
-def test_input_is_path(tmp_path):
+
+def test_input_is_path(tmp_path: Path) -> None:
     d = tmp_path / "sub"
     d.mkdir()
     p = d / "hello.html"
     html_content = "<p>Hello from file</p>"
     p.write_text(html_content)
-    expected_text = "Hello from file\n" # Adjusted for single newline
+    expected_text = "Hello from file\n"  # Adjusted for single newline
     assert html22text(str(p), is_input_path=True, markdown=False) == expected_text
+
 
 # Test for path operations, ensuring Path objects are handled.
 # This is more of an internal test based on refactoring.
-def test_path_handling_internals():
-    from html22text.html22text import is_doc, rel_txt_href, abs_asset_href
-
+def test_path_handling_internals() -> None:
     # Test is_doc
-    assert is_doc("local.html") == True
-    assert is_doc("sub/local.html") == True
-    assert is_doc("local.htm") == True # .htm should also be fine
-    assert is_doc("local.txt") == False
-    assert is_doc("/abs/local.html") == False
-    assert is_doc("http://example.com/remote.html") == False
-    assert is_doc("#fragment") == False # fragment only
+    assert is_doc("local.html")
+    assert is_doc("sub/local.html")
+    assert is_doc("local.htm")  # .htm should also be fine
+    assert not is_doc("local.txt")
+    assert not is_doc("/abs/local.html")
+    assert not is_doc("http://example.com/remote.html")
+    assert not is_doc("#fragment")  # fragment only
 
     # Test rel_txt_href
     assert rel_txt_href("doc.html", file_ext="md") == "doc.md"
     assert rel_txt_href("path/to/doc.html", file_ext="txt") == "path/to/doc.txt"
-    assert rel_txt_href("doc.html", file_ext=".md") == "doc.md" # handles leading dot
-    assert rel_txt_href("http://example.com/doc.html", file_ext="md") == "http://example.com/doc.html"
+    assert rel_txt_href("doc.html", file_ext=".md") == "doc.md"  # handles leading dot
+    assert (
+        rel_txt_href("http://example.com/doc.html", file_ext="md")
+        == "http://example.com/doc.html"
+    )
     assert rel_txt_href("#fragment", file_ext="md") == "#fragment"
 
     # Test abs_asset_href
     base = "http://example.com/docs/"
     assert abs_asset_href("style.css", base) == "http://example.com/docs/style.css"
-    assert abs_asset_href("../images/img.png", base) == "http://example.com/images/img.png"
-    assert abs_asset_href("http://othersite.com/img.png", base) == "http://othersite.com/img.png"
-    assert abs_asset_href("/abs/path/img.png", base) == "/abs/path/img.png" # Absolute path remains
+    assert (
+        abs_asset_href("../images/img.png", base) == "http://example.com/images/img.png"
+    )
+    assert (
+        abs_asset_href("http://othersite.com/img.png", base)
+        == "http://othersite.com/img.png"
+    )
+    assert (
+        abs_asset_href("/abs/path/img.png", base) == "/abs/path/img.png"
+    )  # Absolute path remains
+
+
+def test_table_plain_text_default_html2text() -> None:
+    html_input = (
+        "<table>"
+        "<tr><th>Header 1</th><th>Header 2</th></tr>"
+        "<tr><td>Cell 1.1</td><td>Cell 1.2</td></tr>"
+        "<tr><td>Cell 2.1</td><td>Cell 2.2</td></tr>"
+        "</table>"
+    )
+    # Observation step: What does html2text produce by default for plain text?
+    # We've set h.ignore_tables = False for this test.
+    # The `plain_tables` parameter in html22text is False by default.
+    # Our custom plain_tables logic is currently commented out.
+    actual_text = html22text(html_input, markdown=False)
+    print(f"Default html2text plain text table output:\n---\n{actual_text}\n---")
+    # For now, just assert something to make the test runnable.
+    # The actual assertion will depend on the observed output.
+    # assert isinstance(actual_text, str) # Comment out to see output
+    assert False, "Forcing failure to see stdout"
+
 
 # Ensure pytest is configured to find the src directory
 # (This is usually handled by hatch/pytest integration or pythonpath settings)
@@ -776,12 +952,37 @@ repos:
             # For now, assuming mypy.overrides in pyproject.toml handles missing imports for some libs
             "beautifulsoup4>=4.11.1", # So mypy can see bs4
             "html2text>=2020.1.16",
-            "weasyprint>=55.0", # Though these are ignored in pyproject.toml for mypy
+            # "weasyprint>=55.0", # Removed
             "fire>=0.4.0",
         ]
         # verbose: true # Optional: for more detailed mypy output
         # pass_filenames: false # If mypy should run on all files configured in pyproject.toml
                                # instead of just changed files. Usually True is fine.
+</file>
+
+<file path="CHANGELOG.md">
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+- Initial `PLAN.md`, `TODO.md`, and `CHANGELOG.md` for streamlining project.
+- Robust fallback mechanism for `SelectorSyntaxError` import, attempting `bs4`, then `soupsieve.util`, then a dummy class.
+
+### Changed
+- Refactored URL handling functions (`is_doc`, `rel_txt_href`, `abs_asset_href`) to use `urllib.parse` instead of `weasyprint.urls`.
+- Reorganized `HTML2Text` option settings within `html22text` function for clarity.
+- Modified `html2text` to enable code marking (`[code]...[/code]`) for Markdown output by setting `HTML2Text.mark_code = True` when `markdown=True`.
+- Corrected various linting and type annotation issues identified by Ruff and Mypy across the codebase.
+- Changed `ValueError` to `TypeError` for unexpected list `href` attributes, as suggested by Ruff (TRY004).
+
+### Removed
+- Removed `weasyprint` dependency from the project (`pyproject.toml`, mypy checks in `.pre-commit-config.yaml`).
 </file>
 
 <file path="LICENSE">
@@ -808,6 +1009,169 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+</file>
+
+<file path="PLAN.md">
+# PLAN: Streamline html22text for MVP v1.0
+
+This document outlines the detailed plan to streamline the `html22text` codebase, focusing on creating a performant, focused v1.0 (MVP) that does its job very well.
+
+## Guiding Principles:
+*   **Focus on MVP:** Prioritize core functionality and robustness for the most common use cases (HTML to Markdown, HTML to plain text).
+*   **Conservatism:** Avoid removing code if its utility is uncertain or if it contributes significantly to the "smart" conversion capabilities beyond basic `html2text` behavior.
+*   **Performance:** Consider performance implications, especially regarding dependencies.
+*   **Maintainability:** Improve code clarity and reduce complexity where possible.
+
+## Detailed Steps:
+
+**1. Setup and Initial Analysis:**
+    *   [x] Create `PLAN.md` (this file).
+    *   [x] Create `TODO.md` with a simplified checklist.
+    *   [x] Create `CHANGELOG.md` for tracking changes.
+    *   [ ] Review existing codebase (done, leading to this plan).
+
+**2. Investigate `weasyprint.urls` Dependency:**
+    *   **Task:** Evaluate if `weasyprint.urls` can be replaced by the standard library's `urllib.parse` for URL manipulation tasks within `html22text.py` (`is_doc`, `rel_txt_href`, `abs_asset_href`).
+    *   **Rationale:** `weasyprint` is a relatively heavy dependency. If its specific URL functions (like advanced IRI/URI handling) are not strictly necessary over what `urllib.parse` offers for this project's scope, removing it would simplify the dependency tree and potentially improve performance/installation ease.
+    *   **Sub-steps:**
+        1.  Identify all functions using `weasyprint.urls`: `is_doc`, `rel_txt_href`, `abs_asset_href`.
+        2.  For each function, analyze the specific `weasyprint.urls` calls (e.g., `url_is_absolute`, `urljoin`, `iri_to_uri`).
+        3.  Attempt to reimplement the logic using `urllib.parse` (e.g., `urlparse`, `urljoin`, `quote`, `unquote`). Pay attention to how `iri_to_uri` is handled; `urllib.parse.quote` might be sufficient if only simple IRI-to-URI conversion is needed.
+        4.  Test thoroughly:
+            *   Ensure existing tests in `test_path_handling_internals` pass or are updated.
+            *   Consider edge cases: internationalized domain names (IDNs), IRIs with non-ASCII characters.
+        5.  If successful and tests pass:
+            *   Remove `weasyprint` from `dependencies` in `pyproject.toml`.
+            *   Remove `weasyprint` from `additional_dependencies` in `.pre-commit-config.yaml` for mypy.
+            *   Remove the mypy override for `weasyprint.*` in `pyproject.toml`.
+            *   Run all tests and linters.
+            *   Update `CHANGELOG.md`.
+        6.  If `weasyprint.urls` provides indispensable features (e.g., superior IRI handling critical for the project) that `urllib.parse` cannot easily replicate, document this finding and retain the dependency.
+
+**3. Simplify `HTML2Text` Configuration in `html22text` function:**
+    *   **Task:** Refactor the instantiation and configuration of the `html2text.HTML2Text` object to reduce redundancy and potentially simplify the main `html22text` function's parameter list.
+    *   **Rationale:** Many parameters in `html22text` directly map to `HTML2Text` options, and their settings often depend on the `markdown` boolean flag. This can be made more concise.
+    *   **Sub-steps:**
+        1.  List all `h.<attribute> = value` assignments.
+        2.  Group them:
+            *   Settings applied regardless of `markdown` mode.
+            *   Settings specific to `markdown=True`.
+            *   Settings specific to `markdown=False`.
+        3.  Identify `html22text` parameters that are passed directly to `HTML2Text` attributes.
+        4.  **Conservative Pruning (MVP Focus):**
+            *   Are there any parameters (and corresponding `HTML2Text` options) that are very niche or whose default `html2text` behavior is generally good enough for an MVP?
+            *   Example: `google_doc`, `google_list_indent`, `images_as_html`, `images_with_size`, `links_each_paragraph`, `pad_tables`, `protect_links`, `single_line_break`, `tag_callback`, `wrap_links`, `wrap_list_items`, `wrap_tables`. Many ofthese are already hardcoded or defaulted by `html2text`. Review if exposing them adds significant value for MVP.
+            *   Focus on retaining options that provide significant control over common Markdown/text conversion scenarios (e.g., link handling, image handling, quote styles).
+        5.  Refactor the code:
+            ```python
+            h = HTML2Text()
+            h.body_width = 0 # Example of a general setting
+            # ... other general settings ...
+
+            if markdown:
+                h.emphasis_mark = "_"
+                h.strong_mark = "**"
+                # ... other markdown-specific settings ...
+            else: # Plain text
+                h.ignore_emphasis = True
+                h.ignore_links = True
+                # ... other text-specific settings ...
+
+            # Apply settings from parameters that are retained
+            h.open_quote = open_quote # If open_quote parameter is kept
+            ```
+        6.  If parameters are removed:
+            *   Update the `html22text` function signature.
+            *   Update its docstring.
+            *   Update CLI help text (implicitly via Fire).
+            *   Update `README.md` examples if affected.
+            *   Adjust or remove tests for the removed parameters.
+        7.  Update `CHANGELOG.md`.
+
+**4. Review and Refactor Tag Manipulation Logic:**
+    *   **Task:** Analyze the custom HTML tag transformations performed using BeautifulSoup before passing the HTML to `html2text`, and remove transformations if `html2text` can handle them adequately or if they are not essential for an MVP.
+    *   **Rationale:** Simplifying this pre-processing step makes the code cleaner and relies more on the core competency of the `html2text` library.
+    *   **Sub-steps:**
+        1.  **`plain_tables`:**
+            *   Current: Manually iterates `<tr>`, `<th>`, `<td>` to create a comma-separated string representation of tables.
+            *   `html2text` options: `h.bypass_tables` (currently `False`), `h.ignore_tables` (set based on `markdown`), `h.pad_tables`.
+            *   Investigate: What is `html2text`'s default plain text output for tables when `ignore_tables=False` and `bypass_tables=False`? Is it acceptable for an MVP?
+            *   If `html2text`'s output is sufficient (even if different), consider removing the `plain_tables` parameter and custom logic. This would be a significant simplification.
+        2.  **Tag Renaming/Handling (primarily for `if not markdown:`):**
+            *   `mark`, `kbd`: `tag.replace_with(tag.get_text(""))`. This seems fine and is a common requirement to strip these.
+            *   `blockquote`: If `block_quote` is true, it's turned into `<q>` and wrapped in `<p>`. If false, into `<div>`.
+                *   `html2text` behavior: How does it handle `<blockquote>` in text mode by default? Does it offer quote character options? The `open_quote` and `close_quote` parameters are passed to `html2text`. The `block_quote` parameter essentially decides if `<blockquote>` should use these quotes. This might be a valuable feature to keep.
+            *   `ul`, `ol`, `figure` to `div`:
+                *   `html2text` behavior: How does it handle these in text mode? It likely has reasonable list formatting and might just strip `figure` or extract its content.
+                *   If `html2text`'s default is acceptable, these renamings can be removed.
+            *   `label`, `h1`-`h6`, `figcaption`, `li` to `p`:
+                *   `html2text` behavior: It should handle headers and list items appropriately for text output (e.g., newlines, prefixes for `li`). Converting them all to `<p>` first might be redundant or counterproductive.
+                *   Investigate and simplify if `html2text`'s defaults are good.
+            *   `code` to `q`:
+                *   `html2text` behavior: It has `mark_code` (currently `False`). How does it render `<code>` or `<pre>` blocks in text mode? Turning `<code>` into `<q>` seems unusual; inline code is typically rendered as is or with special markers if `mark_code` is true. This needs justification or removal.
+        3.  **`kill_tags`:** The logic `for kill_item in actual_kill_tags: ... soup.select(kill_item).replace_with("")` is standard and essential. Keep.
+        4.  **Implementation:**
+            *   For each identified custom transformation, comment it out temporarily.
+            *   Run relevant tests or create new small test cases to observe `html2text`'s default behavior for those tags in both Markdown and text mode.
+            *   Decide whether to keep or remove the custom transformation based on MVP goals and conservatism.
+        5.  Update tests and `CHANGELOG.md`.
+
+**5. Review Helper Functions for Conciseness (Post-`weasyprint` investigation):**
+    *   **Task:** After the `weasyprint.urls` decision and potential rewrite using `urllib.parse`, review the link helper functions (`is_doc`, `rel_txt_href`, `abs_asset_href`) and the functions that use them (`replace_asset_hrefs`, `prep_doc`) for any further minor simplifications or readability improvements.
+    *   **Rationale:** Ensure these functions are clean and efficient.
+    *   **Sub-steps:**
+        1.  Read through the code of these functions.
+        2.  Check for any overly complex logic that could be expressed more simply.
+        3.  Verify that type hints are accurate and helpful.
+        4.  The warning for list `href` attributes in `prep_doc`: `isinstance(current_href, list)` for an anchor tag's `href`. This is highly unlikely with standard HTML parsing. Consider if this check is necessary or if it can be removed as BeautifulSoup typically returns a string for `href`. If kept, ensure the warning is informative.
+        5.  Update `CHANGELOG.md` if any changes are made.
+
+**6. Final Code and Documentation Review:**
+    *   **Task:** Perform a holistic review of the codebase and documentation after the streamlining changes.
+    *   **Rationale:** Ensure consistency, correctness, and clarity.
+    *   **Sub-steps:**
+        1.  Read through `src/html22text/html22text.py` one last time.
+        2.  Check comments: Are they explaining "why" not just "what"? Are they up-to-date?
+        3.  Check docstrings: Is the main `html22text` docstring accurate given any parameter changes? Are other docstrings clear?
+        4.  `README.md`:
+            *   Verify installation instructions.
+            *   Verify CLI examples and API examples.
+            *   Ensure feature list is accurate.
+        5.  `pyproject.toml`:
+            *   Confirm dependencies are correct.
+            *   Ensure project metadata is accurate.
+        6.  Update `CHANGELOG.md` with any final touch-ups.
+
+**7. Testing and Validation:**
+    *   **Task:** Run all automated checks and perform manual validation.
+    *   **Rationale:** Catch any regressions or issues introduced during refactoring.
+    *   **Sub-steps:**
+        1.  Run Ruff formatter: `hatch run lint:fmt --check` (or `hatch run lint:fmt` to apply changes).
+        2.  Run Ruff linter: `hatch run lint:style`. Fix any issues.
+        3.  Run MyPy type checker: `hatch run lint:typing`. Fix any issues.
+        4.  Run Pytest with coverage: `hatch run lint:cov`.
+            *   Ensure all tests pass.
+            *   Review coverage report. Aim to maintain or improve coverage.
+        5.  Manual Testing:
+            *   Prepare a few diverse HTML samples (simple paragraph, links, images, lists, a basic table, some tags to be killed).
+            *   Use the CLI to convert them to Markdown.
+            *   Use the CLI to convert them to plain text.
+            *   Verify the output looks reasonable and aligns with the expected MVP behavior.
+
+**8. Update `PLAN.md` and `TODO.md`:**
+    *   **Task:** Mark all completed steps.
+    *   **Rationale:** Track progress.
+
+**9. Submit Changes:**
+    *   **Task:** Commit the streamlined code.
+    *   **Rationale:** Finalize the refactoring effort.
+    *   **Sub-steps:**
+        1.  Stage all changes.
+        2.  Write a comprehensive commit message summarizing the streamlining effort and key changes.
+        3.  Use a descriptive branch name (e.g., `refactor/streamline-mvp`).
+        4.  (If applicable in a team setting) Push the branch and create a Pull Request.
+
+This plan aims for a balance between significant streamlining for an MVP and a conservative approach to preserve the core value of `html22text`.
 </file>
 
 <file path="pyproject.toml">
@@ -840,7 +1204,7 @@ classifiers = [
 dependencies = [
     "beautifulsoup4>=4.11.1",
     "html2text>=2020.1.16",
-    "weasyprint>=55.0",
+    # "weasyprint>=55.0", # Removed
     "fire>=0.4.0",
     "ruff>=0.1.0", # Added ruff
     "mypy>=1.0.0" # Added mypy
@@ -890,9 +1254,9 @@ ignore_missing_imports = true
 module = "html2text.*"
 ignore_missing_imports = true
 
-[[tool.mypy.overrides]]
-module = "weasyprint.*"
-ignore_missing_imports = true
+# [[tool.mypy.overrides]] # Removed weasyprint override
+# module = "weasyprint.*"
+# ignore_missing_imports = true
 
 [tool.hatch.envs.default]
 dependencies = [
@@ -1103,6 +1467,45 @@ This will automatically run Ruff and MyPy on staged files before you commit.
 
 ## License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+</file>
+
+<file path="TODO.md">
+# TODO: Streamline html22text for MVP v1.0
+
+- [x] Create `PLAN.md` with detailed steps.
+- [x] Create `TODO.md` (this file).
+- [x] Create `CHANGELOG.md`.
+- [ ] **Investigate `weasyprint.urls` Dependency:**
+    - [ ] Analyze usage in `is_doc`, `rel_txt_href`, `abs_asset_href`.
+    - [ ] Attempt replacement with `urllib.parse`.
+    - [ ] Test thoroughly.
+    - [ ] If successful, remove dependency and update configs. Otherwise, document and keep.
+- [ ] **Simplify `HTML2Text` Configuration:**
+    - [ ] Analyze parameter mapping to `HTML2Text` attributes.
+    - [ ] Refactor configuration logic for conciseness.
+    - [ ] Conservatively prune non-essential exposed parameters for MVP.
+    - [ ] Update function signature, docstrings, CLI, and tests if parameters change.
+- [ ] **Review and Refactor Tag Manipulation Logic:**
+    - [ ] Evaluate `plain_tables` custom logic vs. `html2text` capabilities.
+    - [ ] Review non-Markdown tag renamings (`blockquote`, `ul`, `ol`, `figure`, headers, `li`, `code`) vs. `html2text` defaults.
+    - [ ] Keep essential `kill_tags` and `mark`/`kbd` stripping.
+    - [ ] Simplify by removing custom logic if `html2text` defaults are acceptable for MVP.
+    - [ ] Update tests.
+- [ ] **Review Helper Functions for Conciseness:**
+    - [ ] Post-`weasyprint` investigation, review link helpers (`is_doc`, `rel_txt_href`, `abs_asset_href`, `replace_asset_hrefs`, `prep_doc`) for minor simplifications.
+    - [ ] Check warning for list `href` attributes in `prep_doc`.
+- [ ] **Final Code and Documentation Review:**
+    - [ ] Review comments and docstrings.
+    - [ ] Ensure `README.md` is accurate (API, CLI examples).
+    - [ ] Verify `pyproject.toml`.
+- [ ] **Testing and Validation:**
+    - [ ] Run all linters, formatters, type checks (`ruff`, `mypy`).
+    - [ ] Run all tests with coverage (`pytest`).
+    - [ ] Perform manual CLI testing with representative HTML samples.
+- [ ] **Update `PLAN.md` and `TODO.md`:**
+    - [ ] Mark all steps as complete.
+- [ ] **Submit Changes:**
+    - [ ] Commit with a comprehensive message to a new branch.
 </file>
 
 </files>

@@ -66,6 +66,7 @@ python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true # For now, to handle external libraries
+mypy_path = "src"
 # allow_redefinition = true # May be needed depending on codebase
 # exclude = ["tests/"] # If tests have different type checking rules or are incomplete
 
@@ -100,7 +101,7 @@ dependencies = [
 [tool.hatch.envs.lint.scripts]
 fmt = "ruff format src/ tests/ {args}"
 style = "ruff check src/ tests/ {args}"
-typing = "mypy src/ tests/ {args}"
+typing = "mypy --package html22text --package tests {args}"
 # Combined linting script
 lint-all = [
   "fmt --check", # Check formatting

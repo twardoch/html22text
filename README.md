@@ -63,7 +63,7 @@ html22text HTML_CONTENT_OR_FILE_PATH [OPTIONS...] [- FIRECOMMAND]
 *   `--is_input_path`: If specified, the first argument is treated as a file path.
 *   `--markdown`: Output Markdown (default is plain text).
 *   `--base_url URL`: Base URL for resolving relative links.
-*   `--kill_tags TAG1 TAG2 ...`: List of CSS selectors for tags whose content should be removed (e.g., `script "p.advert"`).
+*   `--kill_tags "TAG1,TAG2,..."`: Comma-separated string of CSS selectors for tags whose content should be removed (e.g., `"script,.advert"`). Quote the string if it contains spaces or special characters.
 *   `--file_ext_override EXT`: Output file extension for link conversion (e.g., `md`, `txt`).
 *   See `html22text --help` for all available options derived from the Python API.
 

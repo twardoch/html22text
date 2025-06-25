@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import contextlib
-import warnings  # Moved here
 from pathlib import Path
 from typing import cast  # For type hinting kill_tags and casting
 from urllib.parse import quote as urlquote
@@ -29,7 +28,7 @@ except ImportError:
             """Dummy SelectorSyntaxError if not found in bs4 or soupsieve."""
 
 
-# Helper function to replace weasyprint.urls.iri_to_uri
+# Helper function for IRI to URI conversion using urllib.parse
 def _iri_to_uri_urllib(iri_string: str) -> str:
     """
     Converts an IRI (Internationalized Resource Identifier) to a URI
@@ -197,31 +196,26 @@ def prep_doc(
             current_href = anchor_tag.get("href")
             if isinstance(current_href, str):
                 anchor_tag["href"] = rel_txt_href(current_href, file_ext)
-            elif isinstance(current_href, list):  # Should not happen for 'href'
-                warnings.warn(
-                    f"Anchor tag with unexpected list 'href': {current_href}. "
-                    "Skipping transformation.",
-                    UserWarning,
-                    stacklevel=2,  # B028: Add stacklevel
-                )
+            # Removed check for `isinstance(current_href, list)` for anchor tags'
+            # href, as this is highly unlikely for standard HTML and
+            # `rel_txt_href` expects a string.
 
     # The RET504 for this was valid, direct return.
     return replace_asset_hrefs(soup, base_url)
 
 
-def html22text(  # noqa: PLR0912, PLR0913, PLR0915
+def html22text(  # noqa: PLR0913, PLR0915
     html_content: str,  # Renamed from html to avoid confusion with module
     is_input_path: bool = False,  # Renamed from input
     markdown: bool = False,
     selector: str = "html",
     base_url: str = "",
-    # plain_tables: bool = False, # Removed parameter
     open_quote: str = "“",
     close_quote: str = "”",
     block_quote: bool = False,
     default_image_alt: str = "",
     kill_strikethrough: bool = False,
-    kill_tags: list[str] | None = None,  # B006 fix
+    kill_tags: str | None = None,  # Comma-separated string of selectors
     kill_images: bool = False,
     file_ext_override: str = "",  # Renamed file_ext to avoid confusion
 ) -> str:
@@ -236,8 +230,6 @@ def html22text(  # noqa: PLR0912, PLR0913, PLR0915
         selector (str, optional): Select the portion of HTML to extract.
             Defaults to "html".
         base_url (str, optional): Base URL for link conversion. Defaults to "".
-        plain_tables (bool, optional): If plain-text, force plain table formatting.
-            Defaults to False.
         open_quote (str, optional): If plain-text, char to use for `<q>`.
             Defaults to "“".
         close_quote (str, optional): If plain-text, char to use for `</q>`.
@@ -248,15 +240,17 @@ def html22text(  # noqa: PLR0912, PLR0913, PLR0915
             for images. Defaults to "".
         kill_strikethrough (bool, optional): If plain-text, remove content of
             `<s></s>`. Defaults to False.
-        kill_tags (list | None, optional): If plain-text, remove content of
-            specified selectors. Defaults to None, then initialized to [].
+        kill_tags (str | None, optional): If plain-text, comma-separated string
+            of CSS selectors whose content should be removed. Defaults to None.
         file_ext_override (str, optional): If markdown, file extension for relative
             `.html` link conversion. Defaults to "".
 
     Returns:
         str: Markdown or plain-text as string.
     """
-    actual_kill_tags = kill_tags if kill_tags is not None else []
+    actual_kill_tags: list[str] = []
+    if kill_tags:
+        actual_kill_tags = [tag.strip() for tag in kill_tags.split(',')]
 
     if is_input_path:
         html_content = Path(html_content).read_text(encoding="utf-8")
@@ -282,43 +276,16 @@ def html22text(  # noqa: PLR0912, PLR0913, PLR0915
 
             if tag.name in ("mark", "kbd"):
                 tag.replace_with(tag.get_text(""))  # type: ignore[arg-type]
-            # Temporarily commenting out custom plain_tables logic
-            # if plain_tables and tag.name == "table":
-            #     rows = []
-            #     for tr_element in tag.find_all("tr"):
-            #         if isinstance(tr_element, Tag):
-            #             tr_tag: Tag = tr_element
-            #             # PERF401: Use list comprehension
-            #             td_cells = [
-            #                 td.get_text(" ")
-            #                 for td in tr_tag.find_all(["th", "td"])
-            #                 if isinstance(td, Tag)
-            #             ]
-            #             rows.append(", ".join(td_cells))
-            #     tag.replace_with(". ".join(rows))  # type: ignore[arg-type]
-            if not markdown:
-                if tag.name == "blockquote":
-                    if block_quote:
-                        tag.name = "q"
-                        tag.wrap(soup.new_tag("p"))
-                    else:
-                        tag.name = "div"
-                elif tag.name in ("ul", "ol", "figure"):
-                    tag.name = "div"
-                elif tag.name in (
-                    "label",
-                    "h1",
-                    "h2",
-                    "h3",
-                    "h4",
-                    "h5",
-                    "h6",
-                    "figcaption",
-                    "li",
-                ):
-                    tag.name = "p"
-                elif tag.name == "code":  # Note: was "code", changed to "q"
-                    tag.name = "q"
+            # Custom plain_tables logic removed as html2text native handling is
+            # preferred.
+            if not markdown and tag.name == "blockquote" and block_quote:
+                # If block_quote is True for plain text, transform <blockquote>
+                # to <p><q> for custom quoting. Otherwise, <blockquote> is
+                # passed through for native html2text handling.
+                tag.name = "q"
+                tag.wrap(soup.new_tag("p"))
+            # Other specific tag transformations for plain text mode have been
+            # removed to rely more on html2text's default behavior.
 
     for kill_item in actual_kill_tags:  # Use the initialized list
         for element_to_kill in soup.select(kill_item):  # select usually returns Tags
@@ -357,8 +324,7 @@ def html22text(  # noqa: PLR0912, PLR0913, PLR0915
     h.ignore_images = not markdown or kill_images
     h.ignore_links = not markdown
     h.ignore_mailto_links = not markdown
-    # h.ignore_tables = not markdown # Temporarily allow tables for plain text
-    h.ignore_tables = False # For testing html2text's native table handling
+    h.ignore_tables = False  # Always let html2text process tables natively
     h.images_to_alt = not markdown  # Convert images to alt text if not markdown
     h.inline_links = bool(markdown)
     h.mark_code = bool(markdown)  # Enable code marking for Markdown
