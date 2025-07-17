@@ -62,12 +62,26 @@ Web content is predominantly in HTML, which is great for rendering in browsers b
 
 ## Installation
 
-You can install `html22text` from PyPI or directly from the source.
+You can install `html22text` from PyPI, download pre-built binaries, or build from source.
 
 ### From PyPI (Recommended)
 
 ```bash
 pip install html22text
+```
+
+### Pre-built Binaries
+
+Download platform-specific executables from the [GitHub Releases](https://github.com/twardoch/html22text/releases) page:
+
+- **Linux**: `html22text-ubuntu-latest`
+- **Windows**: `html22text-windows-latest.exe`
+- **macOS**: `html22text-macos-latest`
+
+### Quick Install Script
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/twardoch/html22text/main/install.sh | bash
 ```
 
 ### From Source (for development)
@@ -77,18 +91,16 @@ pip install html22text
     git clone https://github.com/twardoch/html22text.git
     cd html22text
     ```
-2.  Install using pip (editable mode):
+2.  Run the development setup script:
     ```bash
-    pip install -e .
+    ./scripts/dev-setup.sh
     ```
-    Alternatively, using [Hatch](https://hatch.pypa.io/latest/):
+3.  Or install manually:
     ```bash
-    # Ensure you are in the cloned html22text directory
-    hatch env create  # Creates a virtual environment and installs dependencies
-    hatch shell       # Activates the virtual environment
-    # To run tests (within hatch shell):
-    # hatch run default:test
+    pip install -e ".[dev]"
     ```
+
+For detailed installation instructions, see [INSTALL.md](INSTALL.md).
 
 ## Usage
 
@@ -275,39 +287,45 @@ Contributions are highly welcome! Please adhere to the following guidelines to e
 
 **1. Development Environment Setup:**
 
-This project uses [Hatch](https://hatch.pypa.io/latest/) for environment and project management.
+This project uses modern Python packaging with git-tag-based semversioning and comprehensive CI/CD.
 
 1.  Clone the repository:
     ```bash
     git clone https://github.com/twardoch/html22text.git
     cd html22text
     ```
-2.  Create and activate a virtual environment with all dependencies:
+2.  Set up the development environment:
     ```bash
-    hatch env create
-    hatch shell
+    ./scripts/dev-setup.sh
     ```
     This installs runtime dependencies and development tools like Ruff, MyPy, and Pytest.
+
+3.  Alternatively, install manually:
+    ```bash
+    pip install -e ".[dev]"
+    ```
 
 **2. Code Style & Linting:**
 
 *   This project uses [Ruff](https://beta.ruff.rs/docs/) for comprehensive linting (combining Flake8, isort, and more) and formatting.
-*   **Format your code:** `hatch run lint:fmt`
-*   **Check for linting issues:** `hatch run lint:style`
+*   **Format your code:** `python -m ruff format src/ tests/`
+*   **Check for linting issues:** `python -m ruff check src/ tests/`
+*   **Run all checks:** `./scripts/test.sh`
 *   Configuration is in `pyproject.toml` (`[tool.ruff]`). Please ensure your contributions adhere to these rules.
 
 **3. Type Checking:**
 
 *   Static type checking is enforced using [MyPy](http://mypy-lang.org/).
-*   **Run type checks:** `hatch run lint:typing`
+*   **Run type checks:** `python -m mypy --package html22text --package tests`
 *   Configuration is in `pyproject.toml` (`[tool.mypy]`). All new code should include type hints and pass type checks.
 
 **4. Testing:**
 
 *   Tests are written using [Pytest](https://docs.pytest.org/) and are located in the `tests/` directory.
-*   **Run tests:** `hatch run default:test`
-*   **Run tests with coverage report:** `hatch run lint:cov`
-    *   Coverage configuration is in `pyproject.toml` (`[tool.coverage]`).
+*   **Run tests:** `python -m pytest tests/`
+*   **Run tests with coverage report:** `python -m pytest --cov=src/html22text --cov-report=term-missing tests/`
+*   **Run all tests and checks:** `./scripts/test.sh`
+*   Configuration is in `pyproject.toml` (`[tool.coverage]`).
 *   All new features must be accompanied by tests. Bug fixes should include regression tests.
 *   Aim to maintain or increase test coverage.
 
@@ -334,27 +352,32 @@ This project uses [Hatch](https://hatch.pypa.io/latest/) for environment and pro
 *   Create feature branches from the `main` branch (e.g., `feature/my-new-feature` or `fix/issue-123`).
 *   Write clear and concise commit messages. Consider following [Conventional Commits](https://www.conventionalcommits.org/) if you are familiar with it, though it's not strictly enforced.
 
-**8. Submitting Changes (Pull Requests):**
+**8. Build and Release Process:**
+
+*   **Local build:** `./scripts/build.sh`
+*   **Local testing:** `./scripts/test.sh`
+*   **Release process:** `./scripts/release.sh v1.2.3`
+*   **CI/CD:** Automated testing and building on multiple platforms via GitHub Actions
+*   **Releases:** Automatic PyPI publishing and GitHub releases on git tags
+
+**9. Submitting Changes (Pull Requests):**
 
 1.  Create a feature branch from `main`.
 2.  Make your changes, including adding or updating tests.
-3.  Ensure all checks pass locally: formatting, linting, type checking, and all tests.
+3.  Ensure all checks pass locally:
     ```bash
-    hatch run lint:fmt --check
-    hatch run lint:style
-    hatch run lint:typing
-    hatch run default:test # or lint:cov
+    ./scripts/test.sh
     ```
 4.  Commit your changes and push your branch to your fork.
 5.  Open a Pull Request (PR) against the `main` branch of the `twardoch/html22text` repository.
 6.  Clearly describe your changes in the PR description.
 7.  The CI workflow will automatically run all checks on your PR. Ensure they pass.
 
-**9. Changelog:**
+**10. Changelog:**
 
 *   For significant user-facing changes, new features, or bug fixes, add an entry to `CHANGELOG.md`. Follow the format of existing entries, based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-**10. Dependency Management:**
+**11. Dependency Management:**
 
 *   Project dependencies are managed in `pyproject.toml` under the `[project.dependencies]` section.
 *   Development dependencies are managed by Hatch environments, also configured in `pyproject.toml`.

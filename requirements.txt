@@ -1,0 +1,6 @@
+# this_file: requirements.txt
+# Production dependencies for html22text
+
+beautifulsoup4>=4.11.1
+html2text>=2020.1.16
+fire>=0.4.0

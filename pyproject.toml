@@ -27,10 +27,18 @@ classifiers = [
 dependencies = [
     "beautifulsoup4>=4.11.1",
     "html2text>=2020.1.16",
-    # "weasyprint>=55.0", # Removed
     "fire>=0.4.0",
-    "ruff>=0.1.0", # Added ruff
-    "mypy>=1.0.0" # Added mypy
+]
+
+[project.optional-dependencies]
+dev = [
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+    "pytest>=7.0.0",
+    "pytest-cov>=4.0.0",
+    "build>=0.10.0",
+    "twine>=4.0.0",
+    "pre-commit>=3.0.0",
 ]
 
 [project.urls]
@@ -44,6 +52,7 @@ html22text = "html22text.__main__:cli"
 
 [tool.hatch.version]
 source = "vcs"
+raw-options = { local_scheme = "no-local-version" }
 
 [tool.hatch.build.targets.sdist]
 include = ["/src", "/tests", "/.github", "/.vscode", "README.md"] # Adjusted for new structure
