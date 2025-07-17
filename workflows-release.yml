@@ -1,4 +1,5 @@
-# this_file: .github/workflows/release.yml
+# Save this file as .github/workflows/release.yml
+# this_file: workflows-release.yml
 
 name: Release
 

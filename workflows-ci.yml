@@ -1,4 +1,5 @@
-# this_file: .github/workflows/ci.yml
+# Save this file as .github/workflows/ci.yml
+# this_file: workflows-ci.yml
 
 name: CI
 
