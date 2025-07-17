@@ -1,0 +1,16 @@
+# this_file: requirements-dev.txt
+# Development dependencies for html22text
+
+-r requirements.txt
+
+# Development tools
+ruff>=0.1.0
+mypy>=1.0.0
+pytest>=7.0.0
+pytest-cov>=4.0.0
+build>=0.10.0
+twine>=4.0.0
+pre-commit>=3.0.0
+
+# For building executables
+pyinstaller>=5.0.0
