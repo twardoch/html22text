@@ -1,4 +1,4 @@
-# this_file: INSTALL.md
+# INSTALL.md
 
 # Installation Guide for html22text
 
@@ -66,12 +66,12 @@ cd html22text
 
 ## Binary Executables
 
-Pre-built executables are available for download from the [GitHub Releases](https://github.com/twardoch/html22text/releases) page.
+Pre-built executables are available from the [GitHub Releases](https://github.com/twardoch/html22text/releases) page.
 
 ### Download and Install
 
 1. Go to the [Releases](https://github.com/twardoch/html22text/releases) page
-2. Download the appropriate executable for your platform:
+2. Download the appropriate executable:
    - `html22text-linux-latest` for Linux
    - `html22text-windows-latest.exe` for Windows
    - `html22text-macos-latest` for macOS
@@ -86,7 +86,7 @@ Pre-built executables are available for download from the [GitHub Releases](http
 
 ## Verification
 
-After installation, verify that html22text is working:
+After installation, verify that html22text works:
 
 ```bash
 # Test the module
@@ -105,16 +105,16 @@ Hello **World**
 
 ### Common Issues
 
-1. **Command not found**: If `html22text` command is not found, make sure your Python scripts directory is in your PATH, or use `python -m html22text` instead.
+1. **Command not found**: If `html22text` isn't found, either add your Python scripts directory to PATH or use `python -m html22text`.
 
-2. **Permission denied**: On Linux/macOS, you might need to use `sudo` for system-wide installation or use `--user` flag for user installation.
+2. **Permission denied**: On Linux/macOS, use `sudo` for system-wide installation or `--user` for user installation.
 
-3. **Python version compatibility**: html22text requires Python 3.10 or higher. Check your Python version with `python --version`.
+3. **Python version compatibility**: html22text requires Python 3.10+. Check your version with `python --version`.
 
 ### Getting Help
 
-If you encounter issues:
+If you run into problems:
 
 1. Check the [GitHub Issues](https://github.com/twardoch/html22text/issues) page
-2. Create a new issue with detailed information about your environment and the problem
-3. Include the output of `python --version` and `pip show html22text`
+2. Create a new issue with details about your environment and the problem
+3. Include output from `python --version` and `pip show html22text`

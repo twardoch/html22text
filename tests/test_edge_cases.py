@@ -79,17 +79,28 @@ def test_deeply_nested_html():
 
 
 def test_special_characters_in_links():
-    """Test links with special characters."""
-    html_with_special_chars = '''
+    """Test links with special characters.
+
+    With markdown=True, relative .html links are converted to .md.
+    Percent-encoded sequences (%20) must be preserved, not double-encoded.
+    HTML entities in href attributes are decoded by the HTML parser (&amp; → &).
+    Query-string links whose suffix is not .html are left unchanged.
+    """
+    html_with_special_chars = """
     <p>Links with special chars:</p>
     <a href="file%20with%20spaces.html">Spaced file</a>
     <a href="file&amp;with&amp;entities.html">Entity file</a>
     <a href="file?query=value&amp;other=123">Query params</a>
-    '''
-    result_md = html22text(html_with_special_chars, markdown=True, base_url="http://example.com/")
-    
-    assert "file%20with%20spaces.html" in result_md
-    assert "file&with&entities.html" in result_md
+    """
+    result_md = html22text(
+        html_with_special_chars, markdown=True, base_url="http://example.com/"
+    )
+
+    # .html extension is converted to .md; %20 must not be double-encoded to %2520
+    assert "file%20with%20spaces.md" in result_md
+    # &amp; decoded by HTML parser to &; extension changed to .md
+    assert "file&with&entities.md" in result_md
+    # Query-string URL: suffix is not .html so extension is unchanged
     assert "file?query=value&other=123" in result_md
 
 

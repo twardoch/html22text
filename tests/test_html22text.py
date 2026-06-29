@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from html22text import html22text
-from html22text.html22text import abs_asset_href, is_doc, rel_txt_href
+from html22text.url_utils import abs_asset_href, is_doc, rel_txt_href
 
 
 def test_simple_conversion_markdown() -> None:
@@ -45,22 +45,21 @@ def test_image_conversion_markdown() -> None:
 
 def test_image_conversion_text_with_alt() -> None:
     html_input = '<p><img src="image.jpg" alt="An image"></p>'
-    # With markdown=False, html2text's ignore_images=True, so outputs minimal.
-    # The default_image_alt and kill_images=False don't override this for text mode.
-    expected_text = "\n"
+    # With markdown=False, html2text sets ignore_images=True so the <img> is
+    # dropped entirely; the surrounding <p> produces only whitespace which the
+    # function collapses to "".
     assert (
         html22text(
             html_input, markdown=False, default_image_alt="An image", kill_images=False
         )
-        == expected_text
+        == ""
     )
 
 
 def test_image_conversion_text_no_alt() -> None:
     html_input = '<p><img src="image.jpg"></p>'
-    # With markdown=False, html2text's ignore_images=True.
-    expected_text = "\n"
-    assert html22text(html_input, markdown=False, kill_images=False) == expected_text
+    # With markdown=False, html2text sets ignore_images=True → whitespace → "".
+    assert html22text(html_input, markdown=False, kill_images=False) == ""
 
 
 def test_kill_tags() -> None:
@@ -70,7 +69,8 @@ def test_kill_tags() -> None:
     # The actual output has "Visible\n\nMore visible\n" - the double newline is
     # between blocks
     expected_text = "Visible\n\nMore visible\n"
-    assert html22text(html_input, markdown=False, kill_tags=["script"]) == expected_text
+    assert html22text(html_input, markdown=False, kill_tags="script") == expected_text
+
 
 
 def test_kill_tags_multiple() -> None:
@@ -81,16 +81,17 @@ def test_kill_tags_multiple() -> None:
     # Both <script> and <style> should be removed
     expected_text = "Visible\n\nMore visible\n"
     assert (
-        html22text(html_input, markdown=False, kill_tags=["script", "style"])
+        html22text(html_input, markdown=False, kill_tags="script,style")
         == expected_text
     )
+
 
 
 def test_kill_tags_nested() -> None:
     html_input = "<div>Keep <span>this <script>remove</script>text</span> only</div>"
     # <script> is nested inside <span>, should be removed
     expected_text = "Keep this text only\n"
-    assert html22text(html_input, markdown=False, kill_tags=["script"]) == expected_text
+    assert html22text(html_input, markdown=False, kill_tags="script") == expected_text
 
     html_input = (
         "<div>Keep <span>this <script>remove</script>"
@@ -99,7 +100,7 @@ def test_kill_tags_nested() -> None:
     # Both <script> and <style> are nested, both should be removed
     expected_text = "Keep this text only\n"
     assert (
-        html22text(html_input, markdown=False, kill_tags=["script", "style"])
+        html22text(html_input, markdown=False, kill_tags="script,style")
         == expected_text
     )
 

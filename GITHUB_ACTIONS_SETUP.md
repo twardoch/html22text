@@ -1,19 +1,19 @@
 # GitHub Actions Setup Instructions
 
-Due to GitHub App permission restrictions, the workflow files need to be manually added to your repository. Here's how to set up the complete CI/CD system:
+Due to GitHub App permission restrictions, workflow files must be manually added to your repository. Follow these steps to set up the CI/CD system:
 
 ## 1. Create Workflow Files
 
-Create the `.github/workflows/` directory and add the following files:
+Create the `.github/workflows/` directory and copy the workflow files:
 
-### Create CI Workflow
+### CI Workflow
 
 ```bash
 mkdir -p .github/workflows
 cp workflows-ci.yml .github/workflows/ci.yml
 ```
 
-### Create Release Workflow
+### Release Workflow
 
 ```bash
 cp workflows-release.yml .github/workflows/release.yml
@@ -21,9 +21,9 @@ cp workflows-release.yml .github/workflows/release.yml
 
 ## 2. Configure PyPI Publishing (Optional)
 
-For automated PyPI publishing, you'll need to configure trusted publishing:
+To enable automated PyPI publishing:
 
-1. Go to [PyPI](https://pypi.org/manage/account/publishing/)
+1. Go to [PyPI's trusted publishers page](https://pypi.org/manage/account/publishing/)
 2. Add a new trusted publisher with:
    - **PyPI Project Name**: `html22text`
    - **Owner**: `twardoch`
@@ -33,19 +33,18 @@ For automated PyPI publishing, you'll need to configure trusted publishing:
 
 ## 3. Set Up GitHub Environment (Optional)
 
-For release protection:
+To protect releases:
 
-1. Go to your GitHub repository settings
-2. Navigate to "Environments"
-3. Create a new environment named `release`
-4. Add protection rules if desired
+1. In your GitHub repository, go to Settings → Environments
+2. Create an environment named `release`
+3. Add protection rules if needed
 
 ## 4. Test the Setup
 
 ### Test CI
 1. Push changes to a feature branch
 2. Create a pull request
-3. CI should run automatically
+3. CI runs automatically on push and PR events
 
 ### Test Release
 1. Ensure you're on the main branch
@@ -53,20 +52,20 @@ For release protection:
    ```bash
    ./scripts/release.sh v1.0.0
    ```
-3. This will create a git tag and trigger the release workflow
+3. This creates a git tag and triggers the release workflow
 
 ## 5. Workflow Features
 
 ### CI Workflow (`ci.yml`)
 - Runs on every push and pull request
-- Tests across multiple platforms (Ubuntu, Windows, macOS)
-- Tests across Python versions (3.10, 3.11, 3.12)
-- Performs linting, type checking, and testing
+- Tests on Ubuntu, Windows, macOS
+- Tests Python versions 3.10, 3.11, 3.12
+- Lints, type checks, and runs tests
 - Uploads coverage reports
 - Builds and validates packages
 
 ### Release Workflow (`release.yml`)
-- Triggered by version tags (v1.0.0, v1.2.3, etc.)
+- Triggered by version tags (e.g., `v1.0.0`)
 - Runs full test suite
 - Builds packages
 - Publishes to PyPI (if configured)
@@ -76,11 +75,11 @@ For release protection:
 
 ## 6. Manual Alternative
 
-If you prefer not to use automated PyPI publishing, you can:
+To publish manually:
 
-1. Use the release workflow without the publish step
+1. Run the release workflow without the publish step
 2. Download artifacts from GitHub releases
-3. Manually upload to PyPI using:
+3. Upload to PyPI:
    ```bash
    ./scripts/build.sh
    twine upload dist/*
@@ -88,39 +87,37 @@ If you prefer not to use automated PyPI publishing, you can:
 
 ## 7. Repository Settings
 
-Ensure your repository has:
-- **Actions** enabled
-- **Secrets and variables** configured (if using PyPI)
-- **Environments** set up (if using release protection)
+Enable in your repository settings:
+- **Actions**
+- **Secrets and variables** (if using PyPI)
+- **Environments** (if using release protection)
 
 ## 8. Troubleshooting
 
 ### Common Issues:
-
-1. **Permission errors**: Ensure the GitHub App has proper permissions
-2. **PyPI errors**: Check trusted publisher configuration
-3. **Build failures**: Verify dependencies in `pyproject.toml`
+1. **Permission errors**: Verify GitHub App permissions
+2. **PyPI errors**: Check trusted publisher settings
+3. **Build failures**: Confirm dependencies in `pyproject.toml`
 4. **Test failures**: Run `./scripts/test.sh` locally first
 
 ### Debug Steps:
-
-1. Check the Actions tab in your GitHub repository
-2. Review workflow logs for errors
+1. Check the Actions tab for workflow status
+2. Review logs for error messages
 3. Test scripts locally before pushing
-4. Verify git tags are properly formatted (v1.2.3)
+4. Verify git tags follow semantic versioning (`v1.2.3`)
 
 ## Next Steps
 
-After setting up the workflows:
+After setup:
 
 1. Test with a small version bump
-2. Monitor the first few releases
+2. Monitor initial releases
 3. Adjust configurations as needed
 4. Add more platforms or Python versions if required
 
-The complete CI/CD system will then provide:
+The CI/CD system will then handle:
 - Automated testing and quality checks
-- Multiplatform releases
-- PyPI publishing
+- Multiplatform package builds
+- PyPI publishing (if configured)
 - GitHub releases with downloadable artifacts
-- Pre-built executables for easy installation
+- Pre-built executables for easier installation

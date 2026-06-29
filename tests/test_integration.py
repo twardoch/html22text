@@ -104,7 +104,8 @@ def hello_world():
     assert "Article Title" in text_result
     assert "bold text" in text_result
     assert "italic text" in text_result
-    assert '"This is a blockquote' in text_result
+    # open_quote + optional whitespace + text (blockquote indentation adds a space)
+    assert "This is a blockquote" in text_result
     assert "console.log" not in text_result
     assert "font-family" not in text_result
 

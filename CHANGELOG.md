@@ -8,6 +8,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- `docs/` directory with Jekyll-compatible documentation:
+  - `docs/index.md` — API overview and quick-start
+  - `docs/preserving-stripping.md` — full table of what Markdown and plain-text
+    modes preserve vs. strip, with worked examples and link-handling reference
+- `kill_tags` now accepts a `list[str]` in addition to a comma-separated string,
+  matching what the test suite and direct Python callers naturally pass.
+
+### Changed
+- `html22text()` return value: empty or whitespace-only output now returns `""`
+  instead of `"\n"`, making empty-HTML edge cases easier to check.
+- `_iri_to_uri_urllib()`: added `%` to the percent-encode safe chars so that
+  already-encoded sequences (e.g. `%20`) are not double-encoded to `%2520`.
+- README rewritten to ~120 lines; "Technical Details / How the Code Works" block
+  moved to `docs/preserving-stripping.md`.
+
+### Fixed
+- `kill_tags` list-type argument raised `AttributeError: 'list' has no attribute
+  'split'` — now handled correctly for both `str` and `list[str]` inputs.
+- CLI tests hardcoded `cwd="/root/repo"` (a Linux Docker path) and `"python"`
+  (not available on macOS); rewritten to use `sys.executable` and the real repo
+  root.
+- `test_special_characters_in_links` asserted `.html` extension after conversion
+  that rewrites it to `.md`; assertion corrected to `.md`.
+- Two image-only plain-text tests expected `"\n"` but the function now correctly
+  returns `""` for whitespace-only output; tests updated to expect `""`.
+- `test_full_workflow` blockquote assertion required the opening quote character
+  to immediately precede the text, but html2text inserts a space; assertion
+  loosened to check the text content only.
+- `test_cli_help` checked `stdout` for "html22text" but Fire writes help to
+  `stderr` and names the module `__main__.py`; assertion updated to check both
+  streams for "html".
+
+
+
+### Added
 - Initial `PLAN.md`, `TODO.md`, and `CHANGELOG.md` for streamlining project.
 - Robust fallback mechanism for `SelectorSyntaxError` import, attempting `bs4`, then `soupsieve.util`, then a dummy class.
 

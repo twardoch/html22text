@@ -1,29 +1,27 @@
-# this_file: CONTRIBUTING.md
-
 # Contributing to html22text
 
-Thank you for your interest in contributing to html22text! This document provides guidelines for contributing to the project.
+Thanks for considering a contribution to html22text. Here's how to get started.
 
 ## Quick Start
 
-1. Fork the repository on GitHub
-2. Clone your fork locally
+1. Fork the repository on GitHub  
+2. Clone your fork locally  
 3. Set up the development environment:
    ```bash
    ./scripts/dev-setup.sh
    ```
-4. Make your changes
+4. Make your changes  
 5. Run tests and checks:
    ```bash
    ./scripts/test.sh
    ```
-6. Submit a pull request
+6. Submit a pull request  
 
 ## Development Setup
 
 ### Prerequisites
 
-- Python 3.10 or higher
+- Python 3.10+
 - Git
 
 ### Environment Setup
@@ -34,14 +32,14 @@ cd html22text
 ./scripts/dev-setup.sh
 ```
 
-This will:
-- Install all dependencies
+This script will:
+- Install dependencies
 - Set up pre-commit hooks
 - Make scripts executable
 
 ### Manual Setup
 
-If you prefer manual setup:
+If you're not into automation:
 
 ```bash
 pip install -e ".[dev]"
@@ -52,18 +50,18 @@ pre-commit install
 
 ### 1. Code Quality
 
-We use several tools to ensure code quality:
+We use these tools to keep things clean:
 
 - **Ruff**: Linting and formatting
 - **MyPy**: Type checking
 - **Pytest**: Testing
 
-Run all checks:
+Run everything at once:
 ```bash
 ./scripts/test.sh
 ```
 
-Individual commands:
+Or individually:
 ```bash
 # Linting
 python -m ruff check src/ tests/
@@ -79,9 +77,9 @@ python -m pytest --cov=src/html22text --cov-report=term-missing tests/
 ### 2. Testing
 
 - Write tests for new features
-- Ensure existing tests pass
-- Maintain or improve test coverage
-- Tests are in the `tests/` directory
+- Keep existing tests passing
+- Don’t reduce test coverage
+- All tests live in `tests/`
 
 ### 3. Building
 
@@ -90,98 +88,100 @@ Build the package locally:
 ./scripts/build.sh
 ```
 
-This will create distribution files in the `dist/` directory.
+Distribution files appear in `dist/`.
 
 ## Release Process
 
 ### For Maintainers
 
-1. Ensure all tests pass
-2. Update `CHANGELOG.md`
-3. Create a new version tag:
+1. Make sure all tests pass  
+2. Update `CHANGELOG.md`  
+3. Create a version tag:
    ```bash
    ./scripts/release.sh v1.2.3
    ```
 
-This will:
-- Run all tests
+This does:
+- Run tests
 - Build the package
-- Create and push a git tag
-- Trigger automated CI/CD for PyPI publishing
+- Tag and push to GitHub
+- Trigger CI/CD for PyPI
 
 ### Automated Release
 
-When a version tag is pushed:
-1. CI runs tests on all platforms
-2. Package is built
-3. PyPI release is published
-4. GitHub release is created
-5. Executables are built and attached
+Pushing a version tag triggers:
+1. Cross-platform tests via CI
+2. Package build
+3. PyPI release
+4. GitHub release creation
+5. Executable builds attached to release
 
 ## Code Style Guidelines
 
 ### Python Code
 
-- Follow PEP 8 (enforced by Ruff)
+- Follow PEP 8 (Ruff will enforce it)
 - Use type hints
-- Write docstrings for public functions
-- Keep functions focused and small
+- Add docstrings for public functions
+- Keep functions small and focused
 
 ### Documentation
 
-- Update README.md for user-facing changes
+- Update README.md if users will notice the change
 - Add docstrings to new functions
-- Update CHANGELOG.md for releases
+- Keep CHANGELOG.md updated for releases
 
 ### Git Commits
 
-- Write clear, descriptive commit messages
-- Keep commits focused on a single change
-- Consider using [Conventional Commits](https://www.conventionalcommits.org/)
+- Write clear, concise commit messages
+- One logical change per commit
+- Optional but appreciated: [Conventional Commits](https://www.conventionalcommits.org/)
 
 ## Pull Request Guidelines
 
-1. **Branch naming**: Use descriptive names like `feature/add-new-parser` or `fix/handle-empty-input`
+1. **Branch names** should describe the work: `feature/add-new-parser`, `fix/handle-empty-input`, etc.
 
-2. **Pull request description**: Include:
-   - What changes you made
-   - Why you made them
-   - Any breaking changes
-   - Tests you added
+2. **PR description** must include:
+   - What changed
+   - Why it changed
+   - Breaking changes (if any)
+   - New tests (if applicable)
 
-3. **Checklist before submitting**:
+3. **Before submitting**, confirm:
    - [ ] Tests pass locally
-   - [ ] Code is formatted (Ruff)
-   - [ ] Type checking passes (MyPy)
-   - [ ] New tests added if needed
-   - [ ] Documentation updated if needed
+   - [ ] Code is formatted with Ruff
+   - [ ] MyPy passes
+   - [ ] New tests added where needed
+   - [ ] Documentation updated if necessary
 
 ## Reporting Issues
 
-When reporting bugs:
-1. Use GitHub Issues
-2. Include Python version and platform
-3. Provide a minimal reproduction example
-4. Include expected vs actual behavior
+To report a bug effectively:
+
+1. Open a GitHub Issue  
+2. Mention your Python version and OS  
+3. Provide a minimal example that reproduces the issue  
+4. State expected vs actual behavior  
 
 ## Feature Requests
 
-For new features:
-1. Check existing issues first
-2. Describe the use case
-3. Provide examples of desired behavior
-4. Consider implementation complexity
+Propose new features by:
+
+1. Checking existing issues first  
+2. Describing the use case clearly  
+3. Showing examples of desired behavior  
+4. Considering how complex it might be to implement  
 
 ## Getting Help
 
-- GitHub Issues for bugs and feature requests
-- GitHub Discussions for questions and ideas
-- Check existing documentation and tests
+- Use GitHub Issues for bugs and features  
+- Use GitHub Discussions for general questions  
+- Read the documentation and tests before asking  
 
 ## Code of Conduct
 
-Be respectful and inclusive. We want this to be a welcoming project for everyone.
+Be respectful. Be constructive. Don’t be a jerk.
 
 ## License
 
-By contributing, you agree that your contributions will be licensed under the same MIT License as the project.
+By contributing, you agree your code will be licensed under the MIT License, same as the project.
