@@ -1,5 +1,14 @@
 # TODO: Streamline html22text for MVP v1.0
 
+## Pending: first PyPI release (2026-10-13)
+
+- [ ] Upload v1.0.1 to PyPI. Tag `v1.0.1` is pushed and `./publish.sh` built `dist/`, but PyPI
+      refused the upload with `429 Too many new projects created` (a per-account limit on
+      creating new projects). Retry with `uv publish dist/*`, or rebuild from the tag with
+      `./build.sh` first. `vexy-mkdocs-text-export` cannot be released until this is on PyPI.
+
+## MVP v1.0
+
 - [x] Create `PLAN.md` with detailed steps.
 - [x] Create `TODO.md` (this file).
 - [x] Create `CHANGELOG.md`.
