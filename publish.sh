@@ -1,25 +1,16 @@
 #!/usr/bin/env bash
 # this_file: publish.sh
-# Build, install, bump version, and publish html22text to PyPI.
-
+# Release to PyPI: gitnextver commits pending changes, tags the next vX.Y.Z and
+# pushes; then the package is built from that tag and uploaded with uv publish.
+# Requires UV_PUBLISH_TOKEN (or another uv publish credential) in the environment.
 set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
-
-echo "==> Building..."
-bash "$SCRIPT_DIR/build.sh"
-
-echo "==> Installing..."
-bash "$SCRIPT_DIR/install.sh"
-
-echo "==> Bumping version..."
-uvx gitnextver@latest .
-
-echo "==> Building final distributions..."
-uvx hatch build
-
-echo "==> Publishing to PyPI..."
-uv publish
-
-echo "Published."
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+./build.sh test
+uvx gitnextver
+tag="$(git describe --tags --exact-match HEAD 2>/dev/null || true)"
+if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+  echo "HEAD carries no vX.Y.Z tag. gitnextver only tags when there are changes to commit." >&2
+  exit 1
+fi
+./build.sh package
+uv publish --check-url https://pypi.org/simple/ dist/*

@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- First PyPI release, so `vexy-mkdocs-text-export` can depend on `html22text` instead of bundling it.
+- `__version__` now reads the installed package version instead of the fixed `"0.0.0"`.
+- `build.sh` runs the tests and builds into a clean `dist/`; `publish.sh` uses `uvx gitnextver` and `uv publish`.
+- The sdist no longer ships `.github/` and `.vscode/`; it includes `LICENSE` and `CHANGELOG.md`.
+
 ### Added
 - `docs/` directory with Jekyll-compatible documentation:
   - `docs/index.md` — API overview and quick-start

@@ -17,7 +17,6 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Intended Audience :: Information Technology",
-    "License :: OSI Approved :: MIT License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.10",
@@ -55,7 +54,7 @@ source = "vcs"
 raw-options = { local_scheme = "no-local-version" }
 
 [tool.hatch.build.targets.sdist]
-include = ["/src", "/tests", "/.github", "/.vscode", "README.md"] # Adjusted for new structure
+include = ["/src", "/tests", "/README.md", "/LICENSE", "/CHANGELOG.md"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/html22text"] # Adjusted for new structure

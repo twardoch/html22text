@@ -1,21 +1,19 @@
 #!/usr/bin/env bash
 # this_file: build.sh
-# Build script for html22text
-# Lints, formats, tests, and builds the Python package.
-
+# Test html22text and build the package into dist/.
+# Usage: ./build.sh [all|test|package]   (default: all)
 set -euo pipefail
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-cd "$SCRIPT_DIR"
-
-echo "==> Linting and formatting..."
-uvx ruff check --fix src tests || true
-uvx ruff format src tests || true
-
-echo "==> Running tests..."
-uvx hatch test
-
-echo "==> Building package..."
-uvx hatch build
-
-echo "Build complete. Distributions in dist/"
+cd -- "$(dirname -- "${BASH_SOURCE[0]}")"
+target="${1:-all}"
+case "$target" in
+  all|test|package) ;;
+  *) echo "usage: $0 [all|test|package]" >&2; exit 2 ;;
+esac
+if [[ "$target" == all || "$target" == test ]]; then
+  uv run --isolated --with pytest --with-editable . python -m pytest -q tests
+fi
+if [[ "$target" == all || "$target" == package ]]; then
+  rm -rf dist
+  uv build
+  uvx twine check dist/*
+fi
